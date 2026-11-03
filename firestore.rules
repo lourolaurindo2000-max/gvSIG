@@ -1,0 +1,65 @@
+rules_version = '2';
+// Regras de segurança do SIG - Sistema Integrado de Gestão (Almadina-BA)
+// Cole este conteúdo em: Firebase > Firestore Database > Regras > Publicar
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signed() { return request.auth != null; }
+    function profilePath() { return /databases/$(database)/documents/usuarios/$(request.auth.uid); }
+    function hasProfile() { return signed() && exists(profilePath()); }
+    function me() { return get(profilePath()).data; }
+    function active() { return hasProfile() && me().ativo == true; }
+    function role(list) { return active() && me().perfil in list; }
+    function setupDone() { return exists(/databases/$(database)/documents/config/setup); }
+
+    // Painel público (totais por bairro e lista de bairros): todos podem ler
+    match /publico/resumo {
+      allow read: if true;
+      allow write: if role(['admin', 'cadastrador']);
+    }
+    match /publico/bairros {
+      allow read: if true;
+      allow write: if role(['admin']);
+    }
+
+    // Cadastros de pessoas: só usuários ativos
+    match /pessoas/{id} {
+      allow read: if active();
+      allow create, update: if role(['admin', 'cadastrador']);
+      allow delete: if role(['admin']);
+    }
+
+    // Perfis dos usuários
+    match /usuarios/{uid} {
+      allow read: if active() || (signed() && request.auth.uid == uid);
+      // primeiro administrador (só enquanto o sistema não foi configurado)
+      allow create: if role(['admin'])
+        || (signed() && request.auth.uid == uid && !setupDone()
+            && request.resource.data.perfil == 'admin' && request.resource.data.ativo == true);
+      // o próprio usuário só atualiza o último acesso; o resto é do administrador
+      allow update: if role(['admin'])
+        || (signed() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcesso']));
+      allow delete: if role(['admin']);
+    }
+
+    // Marca de que o sistema já foi configurado
+    match /config/setup {
+      allow read: if true;
+      allow create: if hasProfile() && !setupDone();
+      allow update, delete: if false;
+    }
+
+    // Auditoria: ninguém altera nem apaga
+    match /auditoria/{id} {
+      allow read: if role(['admin']);
+      allow create: if active() && request.resource.data.usuario == me().usuario;
+      allow update, delete: if false;
+    }
+
+    // Qualquer outro caminho: bloqueado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
