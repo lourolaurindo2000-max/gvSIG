@@ -1,0 +1,15 @@
+{
+  "name": "sig-almadina",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SIG - Sistema Integrado de Gestão · Almadina-BA (site estático com Supabase)",
+  "author": "André Almeida",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "node scripts/copiar-supabase.js"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.7.0",
+    "@supabase/supabase-js": "2.57.4"
+  }
+}
