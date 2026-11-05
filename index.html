@@ -607,7 +607,7 @@ html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf]{dis
   <div class="ft-law" role="note" aria-label="SIG · Sistema Integrado de Gestão · Almadina-BA · Versão 1.0 · © 2026 Todos os direitos reservados a André Almeida, desenvolvedor do sistema."><div class="mq-track" aria-hidden="true"><span class="mq-item"><b>SIG</b> · Sistema Integrado de Gestão · Almadina-BA <span class="ver">Versão 1.0</span> <span class="mq-sep">◆</span> © <span class="yr">2026</span> Todos os direitos reservados a André Almeida, desenvolvedor do sistema. <span class="mq-sep">◆</span></span><span class="mq-item"><b>SIG</b> · Sistema Integrado de Gestão · Almadina-BA <span class="ver">Versão 1.0</span> <span class="mq-sep">◆</span> © <span class="yr">2026</span> Todos os direitos reservados a André Almeida, desenvolvedor do sistema. <span class="mq-sep">◆</span></span></div></div>
 </div></footer>
 
-<div class="modal" id="modal" hidden><div class="box" id="modalBox"></div></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" hidden><div class="box" id="modalBox"></div></div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -635,6 +635,8 @@ let pubTimer=null,lastPub="";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtBRL=n=>Number(n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const pct=(a,b)=>b?Math.round(a/b*100):0;
+const filled=v=>v!==""&&v!=null&&!(typeof v==="number"&&isNaN(v));
+function hoje(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 const digits=s=>String(s||"").replace(/\D/g,"");
 function age(d){if(!d)return null;const b=new Date(d+"T12:00:00");if(isNaN(b))return null;const t=new Date();let a=t.getFullYear()-b.getFullYear();const m=t.getMonth()-b.getMonth();if(m<0||(m===0&&t.getDate()<b.getDate()))a--;return a}
 function cpfValid(c){c=digits(c);if(c.length!==11||/^(\d)\1+$/.test(c))return false;let s=0;for(let i=0;i<9;i++)s+=+c[i]*(10-i);let r=s*10%11;if(r===10)r=0;if(r!==+c[9])return false;s=0;for(let i=0;i<10;i++)s+=+c[i]*(11-i);r=s*10%11;if(r===10)r=0;return r===+c[10]}
@@ -799,8 +801,8 @@ function renderCharts(a){
   const R=state.resumo,C=["--c1","--c2","--c3","--c4","--c5","--c6"].map(css);
   const z=a||aggregate([]);
   mkChart("chBairro",{type:"bar",data:{labels:BAIRROS,datasets:[
-    {label:"Recebe Bolsa Família",data:BAIRROS.map(b=>R?R.bairros[b].bf:0),backgroundColor:C[1],borderRadius:4,stack:"s"},
-    {label:"Não recebe",data:BAIRROS.map(b=>R?R.bairros[b].total-R.bairros[b].bf:0),backgroundColor:C[0],borderRadius:4,stack:"s"}]},
+    {label:"Recebe Bolsa Família",data:BAIRROS.map(b=>R&&R.bairros[b]?R.bairros[b].bf:0),backgroundColor:C[1],borderRadius:4,stack:"s"},
+    {label:"Não recebe",data:BAIRROS.map(b=>R&&R.bairros[b]?R.bairros[b].total-R.bairros[b].bf:0),backgroundColor:C[0],borderRadius:4,stack:"s"}]},
     options:baseOpts({scales:{x:{stacked:true,ticks:{color:css("--muted")},grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{color:css("--muted"),precision:0},grid:{color:css("--line")}}}})});
   mkChart("chEsc",{type:"bar",data:{labels:ESC_CURTO,datasets:[{label:"Pessoas",data:z.esc,backgroundColor:ESC.map((_,i)=>i===0?C[4]:i<3?C[1]:C[0]),borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{color:css("--muted"),precision:0},grid:{color:css("--line")}},y:{ticks:{color:css("--muted")},grid:{display:false}}}})});
@@ -869,8 +871,9 @@ $$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editin
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
 /* ---------- modal ---------- */
-function modal(html,wide){$("#modalBox").className="box"+(wide?" wide":"");$("#modalBox").innerHTML=html;$("#modal").hidden=false;const f=$("#modalBox").querySelector("input,button");if(f)f.focus()}
-function closeModal(){$("#modal").hidden=true}
+let modalPrevFocus=null;
+function modal(html,wide){if($("#modal").hidden)modalPrevFocus=document.activeElement;$("#modalBox").className="box"+(wide?" wide":"");$("#modalBox").innerHTML=html;$("#modal").hidden=false;const f=$("#modalBox").querySelector("input,button");if(f)f.focus()}
+function closeModal(){$("#modal").hidden=true;const p=modalPrevFocus;modalPrevFocus=null;if(p&&p.isConnected&&typeof p.focus==="function")try{p.focus({preventScroll:true})}catch(e){}}
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeModal()});
 function confirmBox(t,p,label,fn){modal(`<h3>${esc(t)}</h3><p>${esc(p)}</p><div class="row"><button class="btn" id="mNo" type="button">Cancelar</button><button class="btn danger solid" id="mYes" type="button">${esc(label)}</button></div>`);$("#mNo").onclick=closeModal;$("#mYes").onclick=async()=>{$("#mYes").disabled=true;await fn();closeModal()}}
@@ -891,70 +894,12 @@ function applyUsers(l,live){state.users=cleanUsers(l);if(live)state.usersLive=tr
   else restoreSession();
   if(state.view==="usuarios")renderUsuarios()}
 async function saveUsers(l){if(state.db)await state.db.doc("config/usuarios").set({lista:l,atualizadoEm:new Date().toISOString()});else{ls("sig_users",JSON.stringify(l));applyUsers(l,true)}}
-function restoreSession(){let s=null;try{s=JSON.parse(ss("sig_me")||"null")}catch(e){}if(!s||!state.users)return;const u=state.users.find(x=>x.id===s.id&&x.ativo);if(u)setSession(u)}
 function setSession(u){state.me={id:u.id,usuario:u.usuario,nome:u.nome,perfil:u.perfil};state.admin=true;ss("sig_me",JSON.stringify({id:u.id}));applyPerms()}
 function logout(silent){state.me=null;state.admin=false;ss("sig_me",null);applyPerms();if(!silent)toast("Você saiu do sistema")}
 function applyPerms(){const on=!!state.me;$$("[data-perm]").forEach(e=>e.hidden=!can(e.dataset.perm));
   $("#adminBtn").classList.toggle("on",on);$("#adminLbl").textContent=on?"Modo administrativo ativo":"Configurações";$("#adminBtn").title=on?"Modo administrativo ativo: clique para sair":"Configurações: entrar no modo administrativo";$("#adminBtn").setAttribute("aria-label",$("#adminBtn").title);
   const need=VIEW_PERM[state.view];if(need&&!can(need))go("painel");else refresh()}
 function firstAllowed(){return ["pessoas","cadastro"].find(v=>can(VIEW_PERM[v]))||"painel"}
-async function getAdminDoc(){if(!state.db)return {local:ls("sig_admin")};try{const s=await state.db.doc("config/admin").get();return {data:s.exists?s.data():null}}catch(e){return {}}}
-function loginModal(title,intro,fields,btnLabel,onSubmit){
-  modal(`<h3>${title}</h3><p>${intro}</p><form id="lf" novalidate>${fields}<div class="f"><span class="msg" id="lmsg" style="color:var(--bad);font-size:13px"></span></div>
-    <div class="row"><button class="btn" type="button" id="lc">Cancelar</button><button class="btn pri" type="submit" id="lsub">${btnLabel}</button></div></form>`);
-  $("#lc").onclick=closeModal;
-  {const pw=$$("#lf input[type=password]");if(pw.length){const t=document.createElement("label");t.className="chk-line";t.innerHTML='<input type="checkbox" id="lshow"> Mostrar senha';
-    const caps=document.createElement("p");caps.className="side-note";caps.id="lcaps";caps.style.color="var(--warn)";caps.hidden=true;caps.textContent="Atenção: a tecla Caps Lock está ligada.";
-    const last=pw[pw.length-1].closest(".f");last.after(t);t.after(caps);
-    $("#lshow").onchange=e=>pw.forEach(i=>i.type=e.target.checked?"text":"password");
-    pw.forEach(i=>["keyup","keydown"].forEach(ev=>i.addEventListener(ev,k=>{try{caps.hidden=!k.getModifierState("CapsLock")}catch(x){}})))}
-   const lu=$("#lu");if(lu)lu.addEventListener("input",()=>{const v=lu.value.toLowerCase().replace(/\s+/g,"");if(v!==lu.value)lu.value=v})}
-  $("#lf").onsubmit=async e=>{e.preventDefault();const msg=$("#lmsg"),b=$("#lsub");msg.textContent="";b.disabled=true;try{await onSubmit(msg)}catch(err){console.error(err);if(state.me&&state.me.id==="admin"){closeModal();toast("Você está logado no modo administrador.")}else msg.textContent="Não foi possível entrar agora. Recarregue a página e tente de novo."}finally{if(b.isConnected)b.disabled=false}}}
-const fld=(id,l,type,ac,val)=>`<div class="f"><label for="${id}">${l}</label><input id="${id}" type="${type||"text"}" autocomplete="${ac||"off"}" value="${esc(val||"")}"${type==="text"&&id.includes("u")?' autocapitalize="none" spellcheck="false"':""}></div>`;
-async function openLogin(next){
-  if(state.db===undefined||state.users===null||(state.db&&!state.usersLive)){toast("Aguarde a conexão com o banco de dados");return}
-  if(state.canWrite===false){modal(`<h3>Acesso somente leitura</h3><p>Sua conta pode ver o painel, mas não pode acessar os cadastros. Peça ao responsável pelo sistema acesso de colaborador (Contributor) ou editor.</p><div class="row"><button class="btn pri" type="button" id="mOk">Entendi</button></div>`);$("#mOk").onclick=closeModal;return}
-  if(!state.users.length){
-    const d=await getAdminDoc();const legacy=state.db?(d.data&&d.data.senha):d.local;
-    if(legacy){loginModal("Atualização do acesso","O SIG agora tem um login para cada pessoa. Entre com o usuário e a senha atuais do administrador e informe seu nome para criar sua conta de administrador.",
-        fld("lu","Usuário atual","text","username","admin")+fld("lp","Senha atual","password","current-password")+fld("ln","Seu nome completo","text","name"),"Criar minha conta",async msg=>{
-        const u=$("#lu").value.trim().toLowerCase(),p=$("#lp").value,n=$("#ln").value.replace(/\s+/g," ").trim();
-        if(await sha(u+"|"+p)!==legacy){msg.textContent="Usuário ou senha atuais incorretos.";return}
-        if(n.length<3){msg.textContent="Informe seu nome completo.";return}
-        const usuario=USER_RE.test(u)?u:"admin";await createFirst(usuario,n,p,next)});return}
-    loginModal("Criar administrador","Primeiro acesso: crie a conta do administrador. Depois você poderá criar os logins dos agentes.",
-      fld("ln","Nome completo","text","name")+fld("lu","Usuário (letras minúsculas, sem espaço)","text","username","admin")+fld("lp","Senha (mínimo 6 caracteres)","password","new-password")+fld("lp2","Repita a senha","password","new-password"),"Criar e entrar",async msg=>{
-      const n=$("#ln").value.replace(/\s+/g," ").trim(),u=$("#lu").value.trim().toLowerCase(),p=$("#lp").value;
-      if(n.length<3){msg.textContent="Informe o nome completo.";return}if(!USER_RE.test(u)){msg.textContent="Usuário inválido: use de 3 a 30 letras minúsculas, números, ponto ou hífen.";return}
-      if(p.length<6){msg.textContent="A senha precisa de pelo menos 6 caracteres.";return}if(p!==$("#lp2").value){msg.textContent="As senhas não conferem.";return}
-      await createFirst(u,n,p,next)});return}
-  loginModal("Entrar no SIG","Use o usuário e a senha que o administrador criou para você.",fld("lu","Usuário","text","username")+fld("lp","Senha","password","current-password"),"Entrar",async msg=>{
-    const u=$("#lu").value.trim().toLowerCase(),p=$("#lp").value;const usr=state.users.find(x=>x.usuario===u);
-    if(!usr){msg.textContent=`Não existe o usuário "${u}". Confira como ele foi criado (sempre em letras minúsculas).`;return}
-    if(await passHash(usr.salt,p)!==usr.hash){msg.textContent="Senha incorreta. Use \"Mostrar senha\" para conferir o que foi digitado.";return}
-    if(!usr.ativo){msg.textContent="Este usuário está desativado. Fale com o administrador.";return}
-    setSession(usr);closeModal();toast("Bem-vindo(a), "+usr.nome.split(" ")[0]);
-    const L=state.users.map(x=>x.id===usr.id?Object.assign({},x,{ultimoAcesso:new Date().toISOString()}):x);saveUsers(L).catch(()=>{});
-    logAudit("acesso","Entrou no sistema",usr.nome,PERFIS[usr.perfil].l);
-    const v=next&&can(VIEW_PERM[next]||"ver")?next:firstAllowed();go(v)});
-  if(state.isOwner){const r=document.createElement("button");r.type="button";r.className="link-btn";r.textContent="Esqueci a senha (dono do sistema)";$("#lf .row").before(r);
-    r.onclick=()=>confirmBox("Redefinir o acesso?","Todos os logins do SIG serão apagados e você cria um administrador novo em seguida. Os cadastros de pessoas, os bairros e a auditoria continuam guardados. Só o dono do sistema vê esta opção.","Redefinir acesso",async()=>{
-      try{await state.db.doc("config/usuarios").delete();try{await state.db.doc("config/admin").delete()}catch(e){}
-        state.users=[];logAudit("usuario","Redefiniu o acesso do administrador","Dono do sistema","Todos os logins apagados pelo dono do sistema");toast("Acesso redefinido. Crie o administrador.");setTimeout(()=>openLogin(next),400)}
-      catch(err){toast(errMsg(err))}})}
-}
-async function createFirst(usuario,nome,senha,next){const salt=uid()+uid();const u={id:"u"+uid(),usuario,nome,perfil:"admin",salt,hash:await passHash(salt,senha),ativo:true,criadoEm:new Date().toISOString(),ultimoAcesso:new Date().toISOString()};
-  await saveUsers([u]);setSession(u);closeModal();modal(`<h3>Conta criada</h3><p>Guarde estes dados para entrar no SIG:</p><dl class="dl"><dt>Usuário</dt><dd><b>${esc(usuario)}</b></dd><dt>Senha</dt><dd>a que você acabou de digitar</dd></dl><div class="row"><button class="btn pri" type="button" id="mOk">Entendi, anotei</button></div>`);$("#mOk").onclick=closeModal;logAudit("usuario","Criou o primeiro administrador",nome,"");go(next&&can(VIEW_PERM[next]||"ver")?next:"pessoas")}
-$("#adminBtn").onclick=()=>{if(!state.me){openLogin("pessoas");return}
-  modal(`<h3>${esc(state.me.nome)}</h3><p>Usuário <b>${esc(state.me.usuario)}</b> · perfil ${PERFIS[state.me.perfil].l}. ${PERFIS[state.me.perfil].d}</p>
-    <div class="row"><button class="btn" type="button" id="aPw">Trocar minha senha</button><button class="btn danger solid" type="button" id="aOut">Sair</button></div>`);
-  $("#aOut").onclick=()=>{logAudit("acesso","Saiu do sistema",state.me.nome,"");closeModal();logout()};
-  $("#aPw").onclick=()=>loginModal("Trocar minha senha","A nova senha vale a partir do próximo acesso, em todos os aparelhos.",fld("lp0","Senha atual","password","current-password")+fld("lp","Nova senha (mínimo 6 caracteres)","password","new-password")+fld("lp2","Repita a nova senha","password","new-password"),"Salvar senha",async msg=>{
-    const me=state.users.find(x=>x.id===state.me.id);if(!me){msg.textContent="Usuário não encontrado.";return}
-    if(await passHash(me.salt,$("#lp0").value)!==me.hash){msg.textContent="A senha atual está incorreta.";return}
-    const p=$("#lp").value;if(p.length<6){msg.textContent="A nova senha precisa de pelo menos 6 caracteres.";return}if(p!==$("#lp2").value){msg.textContent="As senhas não conferem.";return}
-    const salt=uid()+uid(),hash=await passHash(salt,p);await saveUsers(state.users.map(x=>x.id===me.id?Object.assign({},x,{salt,hash}):x));closeModal();toast("Senha alterada");logAudit("usuario","Trocou a própria senha",me.nome,"")})};
-
 /* gestão de usuários */
 function renderUsuarios(){const L=state.users||[];const fmt=d=>d?new Date(d).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):"nunca";
   $("#userCount").textContent=`${L.length} ${L.length===1?"usuário":"usuários"} · ${L.filter(u=>u.ativo).length} ativos`;
@@ -1001,14 +946,12 @@ function editUsuario(u){const isNew=!u;
    A proteção real é o compartilhamento do link (Colaborador pode gravar; Visualizador só vê). */
 const ADMIN_FIXO={id:"admin",usuario:"admin",nome:"Administrador",perfil:"admin"};
 PERFIS.admin.p=PERFIS.admin.p.filter(x=>x!=="usuarios");
-const normPw=v=>String(v||"").normalize("NFKC").replace(/\s+/g,"").toLowerCase();
 function adminEntrou(next){
   try{setSession(ADMIN_FIXO)}catch(e){console.error(e);state.me=Object.assign({},ADMIN_FIXO);state.admin=true;try{ss("sig_me",JSON.stringify({id:"admin"}));$$("[data-perm]").forEach(el=>el.hidden=!can(el.dataset.perm));$("#adminBtn").classList.add("on")}catch(x){}}
   closeModal();
   try{go(next&&can(VIEW_PERM[next]||"ver")?next:"pessoas")}catch(e){console.error(e)}
   try{logAudit("acesso","Entrou no modo administrativo","Administrador","")}catch(e){}
   toast("Você está logado no modo administrador.")}
-const ADMIN_PASS_HASH="f1604134ab725376feafc669dd1a80d7430e0b84db11ba0aa72628b92992a148"; // senha: definida pelo administrador
 async function openLogin(next){
   if(isTvDevice()){toast("As configurações não ficam disponíveis na Smart TV");return}
   if(state.db===undefined){toast("Aguarde a conexão com o banco de dados");return}
@@ -1108,6 +1051,7 @@ document.addEventListener("click",e=>{if(e.target.closest("[data-pdf]"))openRela
 const F=$("#form");
 fillBairroSelects();
 $("#esc").innerHTML=`<option value="">Selecione</option>`+ESC.map(b=>`<option>${b}</option>`).join("");
+$("#nasc").max=hoje();$("#nasc").min="1900-01-01";
 
 $("#cpf").addEventListener("input",e=>e.target.value=fmtCpf(e.target.value));
 ["tel","tel2"].forEach(i=>$("#"+i).addEventListener("input",e=>e.target.value=fmtTel(e.target.value)));
@@ -1139,7 +1083,7 @@ function readForm(){const o={};for(const el of F.elements){if(!el.name)continue;
 function setErr(id,m){const f=$("#"+id).closest(".f");f.classList.add("err");f.querySelector(".msg").textContent=m}
 function validate(o){$$(".f.err").forEach(f=>f.classList.remove("err"));$$(".f .msg").forEach(m=>m.textContent="");let ok=true;const e=(i,m)=>{setErr(i,m);ok=false};
   if(o.nome.length<3)e("nome","Informe o nome completo.");
-  if(!o.nasc)e("nasc","Informe a data de nascimento.");else{const a=age(o.nasc);if(a==null||a<0||a>120)e("nasc","Data inválida.")}
+  if(!o.nasc)e("nasc","Informe a data de nascimento.");else if(o.nasc>hoje())e("nasc","A data de nascimento não pode estar no futuro.");else{const a=age(o.nasc);if(a==null||a<0||a>120)e("nasc","Data inválida.")}
   if(!o.sexo)e("sexo","Selecione o sexo.");if(!o.bairro)e("bairro","Selecione o bairro.");if(!o.esc)e("esc","Selecione a escolaridade.");if(!o.bf)e("bf","Informe se recebe Bolsa Família.");
   if(o.cpf){if(!cpfValid(o.cpf))e("cpf","CPF inválido. Confira os números.");else{const dup=state.records.find(r=>r.id!==state.editing&&digits(r.cpf)===digits(o.cpf));if(dup)e("cpf","CPF já cadastrado para "+dup.nome+".")}}
   const dupOf=(k,v)=>state.records.find(r=>r.id!==state.editing&&digits(r[k])&&digits(r[k])===digits(v));
@@ -1190,23 +1134,23 @@ function editName(r){
 ["q","fBairro","fBf"].forEach(i=>$("#"+i).addEventListener("input",renderPessoas));
 function showDetail(r){const a=age(r.nasc);const row=(l,v)=>v!==""&&v!=null&&!(Array.isArray(v)&&!v.length)?`<dt>${l}</dt><dd>${esc(Array.isArray(v)?v.join(", "):v)}</dd>`:"";const hd=t=>`<div class="hd">${t}</div>`;
   const infL={agua:"Água",esgoto:"Esgoto",energia:"Energia",lixo:"Coleta de lixo",calcamento:"Calçamento"};
-  modal(`<h3>${esc(r.nome)}</h3><p>${esc(r.bairro)} · ${a==null?"":a+" anos"} ${r.exemplo?"· cadastro de exemplo":""}</p><dl class="dl">
-  ${hd("Identificação")}${row("Nome social",r.nomeSocial)}${row("Nascimento",r.nasc?new Date(r.nasc+"T12:00").toLocaleDateString("pt-BR"):"")}${row("Sexo",r.sexo)}${row("Raça/cor",r.cor)}${row("Estado civil",r.civil)}${row("Mãe",filTxt(r,"mae"))}${row("Pai",filTxt(r,"pai"))}${row("Naturalidade",r.natural)}${row("Posição na família",r.parentesco)}${row("Código familiar",r.codFam)}
+  modal(`<h3>${esc(r.nome)}</h3><p>${[esc(r.bairro),a==null?"":a+(a===1?" ano":" anos"),r.exemplo?"cadastro de exemplo":""].filter(Boolean).join(" · ")}</p><dl class="dl">
+  ${hd("Identificação")}${row("Nome social",r.nomeSocial)}${row("Nascimento",r.nasc&&!isNaN(new Date(r.nasc+"T12:00"))?new Date(r.nasc+"T12:00").toLocaleDateString("pt-BR"):"")}${row("Sexo",r.sexo)}${row("Raça/cor",r.cor)}${row("Estado civil",r.civil)}${row("Mãe",filTxt(r,"mae"))}${row("Pai",filTxt(r,"pai"))}${row("Naturalidade",r.natural)}${row("Posição na família",r.parentesco)}${row("Código familiar",r.codFam)}
   ${hd("Documentos")}${row("Não possui",missingDocs(r).map(k=>DOCS[k].l))}${row("CPF",r.cpf)}${row("RG",[r.rg,r.rgOrg].filter(Boolean).join(" "))}${row("NIS",r.nis)}${row("Cartão SUS",r.sus)}${row("Título",r.titulo)}${row("Zona/Seção",r.zona)}${row("Carteira de Trabalho",r.ctps)}${row("Certidão",r.certidao)}
-  ${hd("Endereço")}${row("Endereço",[r.rua,r.numero].filter(Boolean).join(", "))}${row("Referência",r.referencia)}${row("CEP",r.cep)}${row("Tempo no bairro",r.tempo!==""?r.tempo+" anos":"")}${row("Telefone",r.tel)}${row("Recado",r.tel2)}${row("E-mail",r.email)}
+  ${hd("Endereço")}${row("Endereço",[r.rua,r.numero].filter(Boolean).join(", "))}${row("Referência",r.referencia)}${row("CEP",r.cep)}${row("Tempo no bairro",filled(r.tempo)?r.tempo+(+r.tempo===1?" ano":" anos"):"")}${row("Telefone",r.tel)}${row("Recado",r.tel2)}${row("E-mail",r.email)}
   ${hd("Escolaridade e trabalho")}${row("Escolaridade",r.esc)}${row("Sabe ler",r.ler)}${row("Estuda",r.estuda)}${row("Trabalho",r.ocup)}${row("Profissão",r.profissao)}
-  ${hd("Renda e benefícios")}${row("Renda individual",r.rendaInd!==""?fmtBRL(r.rendaInd):"")}${row("Renda familiar",r.rendaFam!==""?fmtBRL(r.rendaFam):"")}${row("Moradores",r.moradores)}${row("Renda per capita",r.rendaFam!==""?fmtBRL(percap(r)):"")}${row("CadÚnico",r.cadunico)}${row("Bolsa Família",r.bf==="sim"?"Sim"+(r.bfValor?" · "+fmtBRL(r.bfValor):""):"Não")}${row("Outros benefícios",r.ben)}
+  ${hd("Renda e benefícios")}${row("Renda individual",filled(r.rendaInd)?fmtBRL(r.rendaInd):"")}${row("Renda familiar",filled(r.rendaFam)?fmtBRL(r.rendaFam):"")}${row("Moradores",r.moradores)}${row("Renda per capita",filled(r.rendaFam)?fmtBRL(percap(r)):"")}${row("CadÚnico",r.cadunico)}${row("Bolsa Família",r.bf==="sim"?"Sim"+(r.bfValor?" · "+fmtBRL(r.bfValor):""):"Não")}${row("Outros benefícios",r.ben)}
   ${hd("Saúde")}${row("Deficiência",r.defic)}${row("Gestante",r.gestante)}${row("Vacinação",r.vacina)}${row("PSF/UBS",r.psf)}${row("Condições",r.saude)}
   ${hd("Moradia")}${row("Imóvel",r.casa)}${row("Material",r.constr)}${row("Cômodos",r.comodos)}${row("Banheiro interno",r.banheiro)}${row("Serviços",(r.inf||[]).map(k=>infL[k]))}
-  ${hd("Registro")}${row("Nomes anteriores",(r.nomesAnteriores||[]).map(h=>h.nome+" (até "+new Date(h.ate).toLocaleDateString("pt-BR")+")"))}${row("Observações",r.obs)}${row("Agente informado",r.agente)}${row("Registrado por",r.criadoPor)}${row("Última alteração por",r.atualizadoPor)}${row("Criado em",r.criadoEm?new Date(r.criadoEm).toLocaleString("pt-BR"):"")}${row("Atualizado em",r.atualizadoEm?new Date(r.atualizadoEm).toLocaleString("pt-BR"):"")}
+  ${hd("Registro")}${row("Nomes anteriores",(Array.isArray(r.nomesAnteriores)?r.nomesAnteriores:[]).map(h=>h.nome+" (até "+new Date(h.ate).toLocaleDateString("pt-BR")+")"))}${row("Observações",r.obs)}${row("Agente informado",r.agente)}${row("Registrado por",r.criadoPor)}${row("Última alteração por",r.atualizadoPor)}${row("Criado em",r.criadoEm?new Date(r.criadoEm).toLocaleString("pt-BR"):"")}${row("Atualizado em",r.atualizadoEm?new Date(r.atualizadoEm).toLocaleString("pt-BR"):"")}
   </dl><div class="row"><button class="btn" id="mC" type="button">Fechar</button>${can("editar")?`<button class="btn" id="mN" type="button">Corrigir nome</button><button class="btn pri" id="mE" type="button">Editar tudo</button>`:""}</div>`,true);
   $("#mC").onclick=closeModal;if(!$("#mE"))return;$("#mN").onclick=()=>editName(r);$("#mE").onclick=()=>{closeModal();state.editing=r.id;fillForm(r);go("cadastro")}}
 
 /* CSV */
 const CSV_COLS=[["nome","Nome"],["nomeSocial","Nome social"],["nasc","Nascimento"],["sexo","Sexo"],["cor","Raça/cor"],["civil","Estado civil"],["mae","Mãe"],["pai","Pai"],["parentesco","Posição na família"],["codFam","Código familiar"],["cpf","CPF"],["rg","RG"],["nis","NIS"],["sus","Cartão SUS"],["titulo","Título"],["zona","Zona/Seção"],["ctps","Carteira de Trabalho"],["certidao","Certidão"],["_semdocs","Documentos que não possui"],["bairro","Bairro"],["rua","Rua"],["numero","Número"],["referencia","Referência"],["cep","CEP"],["tel","Telefone"],["email","E-mail"],["esc","Escolaridade"],["ler","Sabe ler"],["estuda","Estuda"],["ocup","Trabalho"],["profissao","Profissão"],["rendaInd","Renda individual"],["rendaFam","Renda familiar"],["moradores","Moradores"],["cadunico","CadÚnico"],["bf","Bolsa Família"],["bfValor","Valor BF"],["ben","Outros benefícios"],["defic","Deficiência"],["gestante","Gestante"],["saude","Condições de saúde"],["casa","Imóvel"],["constr","Material"],["inf","Serviços"],["obs","Observações"],["agente","Agente informado"],["criadoPor","Registrado por"],["atualizadoPor","Última alteração por"],["criadoEm","Criado em"]];
 $("#btnCsv").onclick=async()=>{if(!can("exportar"))return;if(!state.records.length){toast("Não há cadastros para exportar");return}
-  const q=v=>{v=Array.isArray(v)?v.join(" | "):v==null?"":String(v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const csv="﻿"+CSV_COLS.map(c=>c[1]).join(";")+"\n"+state.records.map(r=>CSV_COLS.map(c=>q(c[0]==="mae"||c[0]==="pai"?filTxt(r,c[0]):c[0]==="_semdocs"?missingDocs(r).map(k=>DOCS[k].l):MONEY.includes(c[0])&&r[c[0]]!==""&&r[c[0]]!=null?fmtBRL(r[c[0]]):r[c[0]])).join(";")).join("\n");
+  const q=v=>{v=Array.isArray(v)?v.join(" | "):v==null?"":String(v);return /[";\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const csv="﻿"+CSV_COLS.map(c=>c[1]).join(";")+"\n"+state.records.map(r=>CSV_COLS.map(c=>q(c[0]==="mae"||c[0]==="pai"?filTxt(r,c[0]):c[0]==="_semdocs"?missingDocs(r).map(k=>DOCS[k].l):c[0]==="bf"?(r.bf==="sim"?"Sim":r.bf==="nao"?"Não":""):MONEY.includes(c[0])&&r[c[0]]!==""&&r[c[0]]!=null?fmtBRL(r[c[0]]):r[c[0]])).join(";")).join("\n");
   if(!state.dl){toast("Exportação indisponível nesta visualização");return}
   try{await state.dl.save({filename:`SIG-Almadina-cadastros-${new Date().toISOString().slice(0,10)}.csv`,data:new Blob([csv],{type:"text/csv;charset=utf-8"})});toast("Planilha pronta para salvar");logAudit("exportacao","Exportou planilha CSV","Todos os cadastros",state.records.length+" cadastros")}catch(e){toast("Exportação cancelada")}};
 
@@ -1231,12 +1175,12 @@ async function loadExamples(){
   const prof={Centro:[.25,.35,.85],Massaranduba:[.7,.65,.4],Liberdade:[.8,.75,.3],"Bairro da Horta":[.75,.7,.35]};
   const pick=a=>a[Math.floor(Math.random()*a.length)];const btn=$("#btnEx");if(btn){btn.disabled=true;btn.textContent="Gravando exemplos…"}
   const recs=[];for(let i=0;i<40;i++){const b=BAIRROS[i%BAIRROS.length];const [pbf,psem,pinf]=prof[b]||[.6,.5,.5];const fem=Math.random()<.55;
-    const ag=Math.floor(Math.random()*80);const y=new Date().getFullYear()-ag;const mor=1+Math.floor(Math.random()*6);
+    const ag=Math.floor(Math.random()*80);const bd=new Date(Date.now()-(ag*365.25+15+Math.random()*340)*864e5);const mor=1+Math.floor(Math.random()*6);
     const bf=Math.random()<pbf;const semEsc=ag>6&&Math.random()<psem*.55;const e=ag<6?ESC[0]:semEsc?ESC[0]:pick(Math.random()<pinf?ESC.slice(2):ESC.slice(1,3));
     const rf=bf?Math.round(300+Math.random()*700):Math.round(800+Math.random()*2600*pinf);
     const inf=[];if(Math.random()<.5+pinf/2)inf.push("agua");if(Math.random()<pinf)inf.push("esgoto");if(Math.random()<.95)inf.push("energia");if(Math.random()<.4+pinf/2)inf.push("lixo");if(Math.random()<pinf)inf.push("calcamento");
     const m=new Date();m.setMonth(m.getMonth()-Math.floor(Math.random()*6));
-    recs.push({exemplo:true,nome:`${fem?pick(nomesF):pick(nomesM)} ${pick(sob)} ${pick(sob)} (exemplo)`,nasc:`${y}-${String(1+Math.floor(Math.random()*12)).padStart(2,"0")}-${String(1+Math.floor(Math.random()*27)).padStart(2,"0")}`,sexo:fem?"Feminino":"Masculino",cor:pick(["Parda","Preta","Parda","Branca"]),bairro:b,esc:e,ler:e===ESC[0]&&ag>6?pick(["Não","Só assina o nome"]):"Sim",bf:bf?"sim":"nao",bfValor:bf?600:"",rendaFam:rf,rendaInd:"",moradores:mor,ben:Math.random()<.2?["Auxílio Gás"]:[],inf,saude:[],ocup:ag<15?"Não se aplica (criança)":pick(["Trabalho informal / bico","Trabalhador(a) rural","Desempregado(a)","Do lar"]),temdoc:Object.keys(DOCS).filter(k=>Math.random()>(k==="titulo"&&ag<16?1:k==="ctps"?(ag<16?1:.55):(1-pinf)*.35)),cep:"45640-000",cpf:"",nis:"",criadoEm:m.toISOString(),atualizadoEm:m.toISOString(),agente:"Exemplo"})}
+    recs.push({exemplo:true,nome:`${fem?pick(nomesF):pick(nomesM)} ${pick(sob)} ${pick(sob)} (exemplo)`,nasc:bd.toISOString().slice(0,10),sexo:fem?"Feminino":"Masculino",cor:pick(["Parda","Preta","Parda","Branca"]),bairro:b,esc:e,ler:e===ESC[0]&&ag>6?pick(["Não","Só assina o nome"]):"Sim",bf:bf?"sim":"nao",bfValor:bf?600:"",rendaFam:rf,rendaInd:"",moradores:mor,ben:Math.random()<.2?["Auxílio Gás"]:[],inf,saude:[],ocup:ag<15?"Não se aplica (criança)":pick(["Trabalho informal / bico","Trabalhador(a) rural","Desempregado(a)","Do lar"]),temdoc:Object.keys(DOCS).filter(k=>Math.random()>(k==="titulo"&&ag<16?1:k==="ctps"?(ag<16?1:.55):(1-pinf)*.35)),cep:"45640-000",cpf:"",nis:"",criadoEm:m.toISOString(),atualizadoEm:m.toISOString(),agente:"Exemplo"})}
   try{for(const r of recs)await saveRec(null,r);toast("40 cadastros de exemplo gravados");logAudit("cadastro","Carregou cadastros de exemplo","","40 cadastros")}catch(e){toast(errMsg(e))}}
 async function removeExamples(){try{for(const r of state.records.filter(x=>x.exemplo))await delRec(r.id);toast("Exemplos removidos");logAudit("exclusao","Removeu cadastros de exemplo","","")}catch(e){toast(errMsg(e))}}
 
@@ -1409,9 +1353,9 @@ function criarBancoSupabase(sb){
     const tabela=TAB[col];if(!tabela)throw new Error("Coleção desconhecida: "+col);
     const novoId=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/-/g,"").slice(0,20);
     const listar=async()=>{let q=sb.from(tabela).select(tabela==="pessoas"?"id,dados":"id,quando,dados");
-      if(ordem)q=q.order(ordem[0]==="quando"&&tabela==="auditoria"?"quando":"atualizado_em",{ascending:ordem[1]!=="desc"});
-      q=q.limit(limite||5000);const {data,error}=await q;if(error)throw erro(error);
-      const docs=(data||[]).map(r=>snapDoc(r.id,r.dados));return {docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false},docChanges:()=>[]}};
+      if(ordem)q=q.order(ordem[0]==="quando"&&tabela==="auditoria"?"quando":"atualizado_em",{ascending:ordem[1]!=="desc"});q=q.order("id",{ascending:true});
+      const max=limite||100000,data=[];for(let ini=0;ini<max;ini+=1000){const fim=Math.min(max,ini+1000)-1;const r=await q.range(ini,fim);if(r.error)throw erro(r.error);data.push(...(r.data||[]));if(!r.data||r.data.length<fim-ini+1)break}
+      const docs=data.map(r=>snapDoc(r.id,r.dados));return {docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false},docChanges:()=>[]}};
     return {path:col,
       doc:id=>docRef(col,id||novoId()),
       add:async v=>{const r=docRef(col,novoId());await r.set(v);return r},
