@@ -682,7 +682,7 @@ let charts={};
 function curAgg(){if(!state.resumo)return null;return state.filter?state.resumo.bairros[state.filter]:state.resumo.todos}
 function renderChips(){
   const box=$("#chipsPainel");box.innerHTML="";
-  ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderPainel()};box.appendChild(c)});
+  ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderPainel();sendTela()};box.appendChild(c)});
 }
 function renderKpis(a){
   const t=a?a.total:0;
@@ -735,7 +735,7 @@ function renderMap(){
   const R=state.resumo,m=METRICS[state.mapMetric];
   const max=Math.max(0,...BAIRROS.map(b=>R&&R.bairros[b]?R.bairros[b].total:0));
   $("#metricTabs").innerHTML=Object.entries(METRICS).map(([k,x])=>`<button type="button" data-m="${k}" aria-pressed="${k===state.mapMetric}">${x.l}</button>`).join("");
-  $$("#metricTabs button").forEach(b=>b.onclick=()=>{state.mapMetric=b.dataset.m;renderMap()});
+  $$("#metricTabs button").forEach(b=>b.onclick=()=>{state.mapMetric=b.dataset.m;renderMap();sendTela()});
   const MAIN="M-10,182 C90,176 170,188 250,196 C320,203 360,226 400,236 C440,246 500,214 560,196 C640,172 720,160 810,152 M424,238 C428,280 434,318 446,350 C458,384 452,430 440,490 M150,-10 C180,60 210,120 236,196 M600,-10 C590,60 580,120 572,196";
   let s=`<svg viewBox="110 72 600 396" role="group" aria-label="Mapa dos bairros de Almadina"><defs>
     <filter id="fSh" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000" flood-opacity=".18"/></filter>
@@ -776,7 +776,7 @@ function renderMap(){
       x=Math.min(x,box.offsetWidth-tip.offsetWidth-6);y=Math.min(y,box.offsetHeight-tip.offsetHeight-6);tip.style.left=Math.max(6,x)+"px";tip.style.top=Math.max(6,y)+"px"};
     const hide=()=>{tip.hidden=true;state.mapHover=null;renderSide()};
     z.addEventListener("pointermove",show);z.addEventListener("pointerleave",hide);z.addEventListener("focus",()=>show());z.addEventListener("blur",hide);
-    const pick=()=>{state.filter=state.filter===b?"":b;tip.hidden=true;state.mapHover=null;renderPainel()};
+    const pick=()=>{state.filter=state.filter===b?"":b;tip.hidden=true;state.mapHover=null;renderPainel();sendTela()};
     z.addEventListener("click",pick);z.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}})});
   renderSide();
 }
@@ -787,8 +787,8 @@ function renderSide(){
     return `<button type="button" class="lg-item" data-b="${b}" aria-pressed="${state.filter===b}"${cur===b?' data-cur="1"':""}>${pinSvg(c,16)}<span class="lg-name">${b}</span><span class="lg-val">${!a||!a.total?"—":m.count?a.total:metricTxt(m,a)}</span><span class="bar"><i style="width:${v==null?0:Math.round(v*100)}%;background:${c}"></i></span></button>`}).join("")}</div>`;
   h+=state.filter?`<button class="btn sm" type="button" id="sideAll">Mostrar todo o município</button>`:`<p class="side-note">${m.count?"Pessoas cadastradas por bairro.":"Percentual de "+m.d+"."} Toque num bairro para filtrar o painel.</p>`;
   side.innerHTML=h;
-  $$("#mapSide .lg-item").forEach(btn=>btn.onclick=()=>{state.filter=state.filter===btn.dataset.b?"":btn.dataset.b;state.mapHover=null;renderPainel()});
-  const sa=$("#sideAll");if(sa)sa.onclick=()=>{state.filter="";state.mapHover=null;renderPainel()};
+  $$("#mapSide .lg-item").forEach(btn=>btn.onclick=()=>{state.filter=state.filter===btn.dataset.b?"":btn.dataset.b;state.mapHover=null;renderPainel();sendTela()});
+  const sa=$("#sideAll");if(sa)sa.onclick=()=>{state.filter="";state.mapHover=null;renderPainel();sendTela()};
 }
 function mkChart(id,cfg){if(typeof Chart==="undefined")return;if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg)}
 function baseOpts(extra){const fg=css("--muted"),grid=css("--line");return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:400},
@@ -863,8 +863,8 @@ function go(v){
   if(v==="cadastro"&&!state.editing)resetForm();
   window.scrollTo({top:0});
 }
-/* controle da Smart TV: Painel/Bairros clicados no computador mudam a tela da TV */
-function sendTela(v){if(v!=="painel"&&v!=="bairros")return;try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+/* controle da Smart TV: Painel/Bairros, filtro de bairro (Todos, Centro…) e indicador do mapa clicados no computador mudam a tela da TV */
+function sendTela(v){v=v||state.view;if(v!=="painel"&&v!=="bairros")return;try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 $$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view);sendTela(t.dataset.view)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
@@ -1299,6 +1299,7 @@ function applyBairros(lista){
   for(const b of L){BAIRROS.push(b.nome);BCOLOR[b.nome]=b.cor;
     if(b.base){const g=BASEGEO[b.id];SHAPES[b.nome]=g.shape;PINS[b.nome]=g.pin;WATER[b.nome]=b.id==="centro"?null:g.water}
     else{SHAPES[b.nome]=blob(b.x,b.y,b.id);PINS[b.nome]=[b.x,b.y-4];WATER[b.nome]=[b.x,b.y+30]}}
+  if(state.telaPend&&BAIRROS.includes(state.telaPend)){state.filter=state.telaPend;state.telaPend=null}
   if(state.filter&&!BAIRROS.includes(state.filter))state.filter="";
   fillBairroSelects();
   if(state.records.length||state.db===null||(state.db&&state.canWrite!==false))onRecords();else refresh();
@@ -1438,7 +1439,10 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
   db.doc("config/usuarios").onSnapshot(s=>{try{applyUsers(s.exists?s.data().lista:[],true)}catch(e){}},()=>{applyUsers([],true)});
   db.doc("publico/bairros").onSnapshot(s=>{try{applyBairros(s.exists?s.data().lista:null)}catch(e){}},()=>{});
   let telaPrim=true;db.doc("publico/tela").onSnapshot(s=>{try{const prim=telaPrim;telaPrim=false;if(!isTvDevice()||!s.exists)return;const d=s.data()||{},v=d.view;
-    if(prim&&!(Date.now()-Date.parse(d.quando||0)<30*60000))return;if((v==="painel"||v==="bairros")&&state.view!==v)go(v)}catch(e){}},()=>{});
+    if(prim&&!(Date.now()-Date.parse(d.quando||0)<30*60000))return;let ch=false;
+    if(typeof d.filtro==="string"&&d.filtro!==state.filter){if(!d.filtro||BAIRROS.includes(d.filtro)){state.filter=d.filtro;state.telaPend=null;ch=true}else state.telaPend=d.filtro}
+    if(d.metrica&&METRICS[d.metrica]&&d.metrica!==state.mapMetric){state.mapMetric=d.metrica;ch=true}
+    if((v==="painel"||v==="bairros")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel()}catch(e){}},()=>{});
   db.collection("pessoas").onSnapshot(snap=>{state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
       gotLive=true;clearTimeout(timer);setStatus("live","Conectado ao Supabase · sincronizado em tempo real");onRecords()},
     err=>{clearTimeout(timer);setStatus("warn","Não foi possível ler os cadastros no Supabase. Recarregue a página.")});
