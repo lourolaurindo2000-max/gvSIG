@@ -366,6 +366,8 @@ body.tv footer .wrap{padding-block:clamp(3px,.6vh,8px);max-width:none}
 body.tv .modal .box{max-height:86vh}
 body.tv :focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 body.tv .ft-law .mq-track{animation-duration:60s}
+/* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
+html.tv-device #adminBtn,html.tv-device #logoutBtn{display:none!important}
 /* TV menor (ex.: 1280x720 ou 960x540): mapa + 4 gráficos principais */
 @media (max-width:1399px),(max-height:700px){
   body.tv #v-painel .grid{grid-template-columns:1.5fr repeat(2,minmax(0,1fr))}
@@ -1006,10 +1008,11 @@ function adminEntrou(next){
   toast("Você está logado no modo administrador.")}
 const ADMIN_PASS_HASH="f1604134ab725376feafc669dd1a80d7430e0b84db11ba0aa72628b92992a148"; // senha: definida pelo administrador
 async function openLogin(next){
+  if(isTvDevice()){toast("As configurações não ficam disponíveis na Smart TV");return}
   if(state.db===undefined){toast("Aguarde a conexão com o banco de dados");return}
   if(state.canWrite===false){modal(`<h3>Acesso somente leitura</h3><p>Sua conta pode ver o painel, mas não pode cadastrar. Peça ao responsável pelo sistema acesso de colaborador (Contributor) ou editor.</p><div class="row"><button class="btn pri" type="button" id="mOk">Entendi</button></div>`);$("#mOk").onclick=closeModal;return}
   adminEntrou(next)}
-function restoreSession(){let s=null;try{s=JSON.parse(ss("sig_me")||"null")}catch(e){}if(s&&s.id==="admin"&&state.canWrite!==false&&!state.me)setSession(ADMIN_FIXO)}
+function restoreSession(){let s=null;try{s=JSON.parse(ss("sig_me")||"null")}catch(e){}if(s&&s.id==="admin"&&state.canWrite!==false&&!state.me&&!isTvDevice())setSession(ADMIN_FIXO)}
 $("#adminBtn").onclick=()=>{if(!state.me){openLogin("pessoas");return}
   modal(`<h3>Modo administrativo ativo</h3><p>Você pode cadastrar, editar, excluir, exportar e configurar os bairros. Ao sair, o SIG volta a mostrar só o painel.</p><div class="row"><button class="btn" type="button" id="aC">Continuar</button><button class="btn danger solid" type="button" id="aOut">Sair do modo administrativo</button></div>`);
   $("#aC").onclick=closeModal;$("#aOut").onclick=()=>{logAudit("acesso","Saiu do modo administrativo","Administrador","");closeModal();logout(true);toast("Você saiu do modo administrativo")}};
@@ -1248,7 +1251,10 @@ try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",paintTh
 
 /* modo TV */
 const TV_UA=/smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|android tv|googletv|crkey|roku|vidaa|viera|philipstv|nettv|aft[bmst]/i;
-const isTvDevice=()=>{try{return TV_UA.test(navigator.userAgent||"")}catch(e){return false}};
+/* #smarttv marca este aparelho como Smart TV (para TVs não reconhecidas); #naotv desfaz */
+(function(){const h=location.hash;if(h==="#smarttv"||h==="#naotv"){ls("sig_smarttv",h==="#smarttv"?"1":"0");if(h==="#naotv")ls("sig_tv","0");try{history.replaceState(null,"",h==="#smarttv"?"#tv":location.pathname+location.search)}catch(e){}}})();
+const isTvDevice=()=>{try{if(ls("sig_smarttv")==="1")return true;return TV_UA.test(navigator.userAgent||"")}catch(e){return false}};
+if(isTvDevice()){document.documentElement.classList.add("tv-device");if(state.me)logout(true)}
 function fsEl(){return document.fullscreenElement||document.webkitFullscreenElement||null}
 function enterFs(){if(fsEl())return;const el=document.documentElement;try{const p=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 function exitFs(){if(!fsEl())return;try{const p=(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
