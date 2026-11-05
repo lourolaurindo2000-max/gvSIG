@@ -367,7 +367,7 @@ body.tv .modal .box{max-height:86vh}
 body.tv :focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 body.tv .ft-law .mq-track{animation-duration:60s}
 /* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
-html.tv-device #adminBtn,html.tv-device #logoutBtn{display:none!important}
+html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf]{display:none!important}
 /* TV menor (ex.: 1280x720 ou 960x540): mapa + 4 gráficos principais */
 @media (max-width:1399px),(max-height:700px){
   body.tv #v-painel .grid{grid-template-columns:1.5fr repeat(2,minmax(0,1fr))}
