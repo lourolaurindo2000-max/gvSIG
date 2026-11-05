@@ -863,7 +863,9 @@ function go(v){
   if(v==="cadastro"&&!state.editing)resetForm();
   window.scrollTo({top:0});
 }
-$$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view)});
+/* controle da Smart TV: Painel/Bairros clicados no computador mudam a tela da TV */
+function sendTela(v){if(v!=="painel"&&v!=="bairros")return;try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+$$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view);sendTela(t.dataset.view)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
 /* ---------- modal ---------- */
@@ -1435,6 +1437,8 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
   let gotLive=false;const timer=setTimeout(()=>{if(!gotLive)setStatus("warn","O banco de dados ainda não respondeu. Verifique a internet.")},10000);
   db.doc("config/usuarios").onSnapshot(s=>{try{applyUsers(s.exists?s.data().lista:[],true)}catch(e){}},()=>{applyUsers([],true)});
   db.doc("publico/bairros").onSnapshot(s=>{try{applyBairros(s.exists?s.data().lista:null)}catch(e){}},()=>{});
+  let telaPrim=true;db.doc("publico/tela").onSnapshot(s=>{try{const prim=telaPrim;telaPrim=false;if(!isTvDevice()||!s.exists)return;const d=s.data()||{},v=d.view;
+    if(prim&&!(Date.now()-Date.parse(d.quando||0)<30*60000))return;if((v==="painel"||v==="bairros")&&state.view!==v)go(v)}catch(e){}},()=>{});
   db.collection("pessoas").onSnapshot(snap=>{state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
       gotLive=true;clearTimeout(timer);setStatus("live","Conectado ao Supabase · sincronizado em tempo real");onRecords()},
     err=>{clearTimeout(timer);setStatus("warn","Não foi possível ler os cadastros no Supabase. Recarregue a página.")});
