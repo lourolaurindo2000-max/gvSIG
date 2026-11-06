@@ -987,70 +987,99 @@ function tituloValid(t){t=digits(t);if(t.length!==12||/^(\d)\1+$/.test(t))return
 function susValid(c){c=digits(c);if(c.length!==15||!/^[12789]/.test(c))return false;let s=0;for(let i=0;i<15;i++)s+=+c[i]*(15-i);return s%11===0}
 
 /* relatório em Excel (.xlsx) */
-const XL={brand:"FF14513F",accent:"FFC9772B",fg:"FF17231D",muted:"FF5A6B61",line:"FFD3DBD2",soft:"FFE9EEE8",zebra:"FFF6F8F5",bad:"FFB23B3B",white:"FFFFFFFF",pale:"FFDCEBE4"};
+const XL={deep:"FF0B3327",brand:"FF14513F",brand2:"FF1F7A5C",gold:"FFC9963A",cacau:"FFC9772B",ink:"FF1B2A22",muted:"FF6B7A70",line:"FFE3DDD0",cream:"FFFBF8F2",zebra:"FFF7F4EC",tint:"FFEFF5F1",total:"FFF4E7D3",white:"FFFFFFFF",pale:"FFCFE3D8",
+  alta:["FFF7DEDB","FF9B2C2C"],media:["FFFBEBCF","FF8A5A12"],baixa:["FFDCEFE2","FF1F6B3F"]};
 const XF={int:"#,##0",pct:"0%",brl:'"R$" #,##0.00',idx:"0"};
 async function buildXLSX(scope,nominal){
   const X=window.ExcelJS;if(!X)throw {code:"xlsx"};
   const R=state.resumo||buildResumo([]),A=scope?R.bairros[scope]:R.todos,bairros=scope?[scope]:BAIRROS.slice();
   const wb=new X.Workbook();wb.creator="SIG Almadina";wb.company="Prefeitura de Almadina";wb.created=new Date();
-  const thin={style:"thin",color:{argb:XL.line}},box={top:thin,left:thin,bottom:thin,right:thin};
+  const hair={style:"thin",color:{argb:XL.line}},box={top:hair,left:hair,bottom:hair,right:hair};
   const fill=c=>({type:"pattern",pattern:"solid",fgColor:{argb:c}});
+  const FN="Calibri",font=o=>Object.assign({name:FN,size:10,color:{argb:XL.ink}},o);
   const ano=new Date().getFullYear(),quando=new Date().toLocaleString("pt-BR"),por=state.me?` por ${state.me.nome} (${PERFIS[state.me.perfil].l})`:"";
-  const sheet=(nome,widths,land)=>{const ws=wb.addWorksheet(nome,{views:[{showGridLines:false}],properties:{defaultRowHeight:18},
+  const sheet=(nome,widths,land,tab)=>{const ws=wb.addWorksheet(nome,{views:[{showGridLines:false}],properties:{defaultRowHeight:18,tabColor:{argb:tab}},
       pageSetup:{paperSize:9,orientation:land?"landscape":"portrait",fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.4,right:.4,top:.5,bottom:.6,header:.3,footer:.3}},
       headerFooter:{oddFooter:`&L&8SIG Versão 1.0 · © ${ano} André Almeida&R&8Página &P de &N`}});
     ws.columns=widths.map(w=>({width:w}));ws._r=1;return ws};
-  const banner=(ws,n,titulo,sub)=>{let r=ws._r;
-    ws.mergeCells(r,1,r,n);let c=ws.getCell(r,1);c.value="SIG · Sistema Integrado de Gestão";c.font={size:16,bold:true,color:{argb:XL.white}};c.fill=fill(XL.brand);c.alignment={vertical:"middle",indent:1};ws.getRow(r).height=32;r++;
-    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value="PREFEITURA DE ALMADINA · BAHIA";c.font={size:9,bold:true,color:{argb:XL.pale}};c.fill=fill(XL.brand);c.alignment={vertical:"top",indent:1};ws.getRow(r).height=18;r++;
-    ws.mergeCells(r,1,r,n);ws.getCell(r,1).fill=fill(XL.accent);ws.getRow(r).height=5;r+=2;
-    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=titulo;c.font={size:18,bold:true,color:{argb:XL.fg}};ws.getRow(r).height=26;r++;
-    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=sub;c.font={size:11,color:{argb:XL.muted}};r++;
-    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=`Gerado em ${quando}${por}`;c.font={size:9,italic:true,color:{argb:XL.muted}};r+=2;ws._r=r};
-  const section=(ws,n,t)=>{const r=ws._r;ws.mergeCells(r,1,r,n);const c=ws.getCell(r,1);c.value=t;c.font={size:13,bold:true,color:{argb:XL.brand}};
-    for(let i=1;i<=n;i++)ws.getCell(r,i).border={bottom:{style:"medium",color:{argb:XL.brand}}};ws.getRow(r).height=22;ws._r=r+2};
+  const band=(ws,n,r,h,c)=>{ws.mergeCells(r,1,r,n);ws.getCell(r,1).fill=fill(c);ws.getRow(r).height=h};
+  const banner=(ws,n,titulo,sub)=>{let r=ws._r,c;
+    band(ws,n,r,8,XL.deep);r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value={richText:[{text:"SIG   ",font:font({size:20,bold:true,color:{argb:XL.gold}})},{text:"Sistema Integrado de Gestão",font:font({size:16,bold:true,color:{argb:XL.white}})}]};
+    c.fill=fill(XL.deep);c.alignment={vertical:"middle",indent:1};ws.getRow(r).height=34;r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value="PREFEITURA MUNICIPAL DE ALMADINA  ·  BAHIA";c.font=font({size:8.5,bold:true,color:{argb:XL.pale}});c.fill=fill(XL.deep);c.alignment={vertical:"top",indent:1};ws.getRow(r).height=20;r++;
+    band(ws,n,r,3,XL.gold);r+=2;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=titulo;c.font=font({size:20,bold:true,color:{argb:XL.brand}});ws.getRow(r).height=30;r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=sub;c.font=font({size:11,bold:true,color:{argb:XL.cacau}});r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=`Gerado em ${quando}${por}`;c.font=font({size:9,italic:true,color:{argb:XL.muted}});r+=2;ws._r=r};
+  const section=(ws,n,t)=>{const r=ws._r;ws.mergeCells(r,1,r,n);
+    for(let i=1;i<=n;i++){const x=ws.getCell(r,i);x.fill=fill(XL.cream);x.border={bottom:{style:"thin",color:{argb:XL.gold}}}}
+    const c=ws.getCell(r,1);c.value=t.toUpperCase();c.font=font({size:10.5,bold:true,color:{argb:XL.brand}});c.alignment={vertical:"middle",indent:1};
+    c.border={left:{style:"thick",color:{argb:XL.gold}},bottom:{style:"thin",color:{argb:XL.gold}}};ws.getRow(r).height=24;ws._r=r+2};
   const table=(ws,cols,rows,o)=>{o=o||{};let r=ws._r;const hr=r;
-    cols.forEach((col,i)=>{const c=ws.getCell(r,i+1);c.value=col[0];c.font={bold:true,size:10,color:{argb:XL.white}};c.fill=fill(XL.brand);c.border=box;c.alignment={vertical:"middle",horizontal:i?"center":"left",wrapText:true,indent:i?0:1}});ws.getRow(r).height=30;r++;
+    cols.forEach((col,i)=>{const c=ws.getCell(r,i+1);c.value=col[0];c.font=font({bold:true,size:9.5,color:{argb:XL.white}});c.fill=fill(XL.brand);
+      c.border={top:{style:"thin",color:{argb:XL.brand}},bottom:{style:"medium",color:{argb:XL.gold}},left:{style:"thin",color:{argb:XL.brand2}},right:{style:"thin",color:{argb:XL.brand2}}};
+      c.alignment={vertical:"middle",horizontal:i?"center":"left",wrapText:true,indent:i?0:1}});ws.getRow(r).height=32;r++;
     rows.forEach((vals,k)=>{const tot=o.total&&k===rows.length-1;vals.forEach((v,i)=>{const c=ws.getCell(r,i+1),f=cols[i][1];c.value=v==null?"—":v;if(f&&typeof v==="number")c.numFmt=f;
-      c.font={size:10,bold:!!tot,color:{argb:XL.fg}};c.border=tot?{...box,top:{style:"medium",color:{argb:XL.brand}}}:box;if(tot)c.fill=fill(XL.soft);else if(k%2)c.fill=fill(XL.zebra);
-      c.alignment={vertical:"middle",horizontal:i?"right":"left",indent:i?1:1,wrapText:!i&&!!o.wrap}});ws.getRow(r).height=19;r++});
+      c.font=font({bold:!!tot||(i===0&&!o.plain),color:{argb:tot?XL.deep:XL.ink}});
+      c.border=tot?Object.assign({},box,{top:{style:"medium",color:{argb:XL.cacau}},bottom:{style:"medium",color:{argb:XL.cacau}}}):box;
+      c.fill=fill(tot?XL.total:k%2?XL.zebra:XL.white);
+      c.alignment={vertical:"middle",horizontal:i&&(typeof v==="number"||v==null)?"right":"left",indent:1,wrapText:!!o.wrap&&i===cols.length-1}});ws.getRow(r).height=20;r++});
     ws._r=r+1;return hr};
-  const note=(ws,n,t,cor)=>{const r=ws._r;ws.mergeCells(r,1,r,n);const c=ws.getCell(r,1);c.value=t;c.font={size:9,italic:true,color:{argb:cor||XL.muted}};c.alignment={wrapText:true,vertical:"top"};ws.getRow(r).height=28;ws._r=r+2};
+  const note=(ws,n,t)=>{const r=ws._r;ws.mergeCells(r,1,r,n);const c=ws.getCell(r,1);c.value=t;c.font=font({size:8.5,italic:true,color:{argb:XL.muted}});c.alignment={wrapText:true,vertical:"top"};ws.getRow(r).height=26;ws._r=r+2};
   const fr=(a,b)=>b?a/b:null;
+  /* cartões de indicadores (4 por linha) */
+  const cards=(ws,items,spans)=>{for(let i=0;i<items.length;i+=spans.length){const rl=ws._r,rv=rl+1,rs=rl+2;
+      items.slice(i,i+spans.length).forEach(([lab,val,fmt],j)=>{const [c1,c2]=spans[j],hero=i===0&&j===0;
+        for(let c=c1;c<=c2;c++)for(const r of [rl,rv]){const x=ws.getCell(r,c);x.fill=fill(hero?XL.brand:XL.tint);const b={};
+          if(c===c1)b.left={style:"thick",color:{argb:hero?XL.gold:XL.brand2}};if(c===c2)b.right={style:"thick",color:{argb:XL.white}};x.border=b}
+        if(c2>c1){ws.mergeCells(rl,c1,rl,c2);ws.mergeCells(rv,c1,rv,c2)}const L=ws.getCell(rl,c1),V=ws.getCell(rv,c1);
+        L.value=lab.toUpperCase();L.font=font({size:8,bold:true,color:{argb:hero?XL.pale:XL.muted}});L.alignment={vertical:"bottom",indent:1};
+        V.value=val==null?"—":val;if(fmt&&typeof val==="number")V.numFmt=fmt;V.font=font({size:20,bold:true,color:{argb:hero?XL.white:XL.brand}});V.alignment={vertical:"middle",horizontal:"left",indent:1}});
+      ws.getRow(rl).height=20;ws.getRow(rv).height=34;ws.getRow(rs).height=8;ws._r=rs+1}ws._r++};
 
   /* aba 1: resumo */
-  const ws=sheet("Resumo",[34,13,13,14,15,15,14,17,14]),N=9,t=A.total||0;
+  const ws=sheet("Resumo",[34,13,13,14,15,15,14,17,14],false,XL.brand),N=9,t=A.total||0;
   banner(ws,N,"Relatório de mapeamento social",scope?`Bairro ${scope} · Almadina-BA`:"Município de Almadina-BA · todos os bairros");
-  section(ws,3,"Indicadores gerais");
-  table(ws,[["Indicador"],["Valor"]],[
-    ["Pessoas cadastradas",t],["Famílias",A.familias||0],["Pessoas no Bolsa Família",fr(A.bf,t)],["Sem escolaridade",fr(A.semEsc,t)],
-    ["Renda per capita média",A.rendaN?A.renda_media:null],["Crianças (até 14 anos)",A.criancas||0],["Idosos (60 anos ou mais)",A.idosos||0]]);
-  {const r0=ws._r-8;[XF.int,XF.int,XF.pct,XF.pct,XF.brl,XF.int,XF.int].forEach((f,i)=>{const c=ws.getCell(r0+i,2);if(typeof c.value==="number")c.numFmt=f})}
+  section(ws,N,"Indicadores gerais");
+  cards(ws,[["Pessoas cadastradas",t,XF.int],["Famílias",A.familias||0,XF.int],["Bolsa Família",fr(A.bf,t),XF.pct],["Sem escolaridade",fr(A.semEsc,t),XF.pct],
+    ["Extrema pobreza",fr(A.renda[0],t),XF.pct],["Renda per capita média",A.rendaN?A.renda_media:null,XF.brl],["Crianças até 14 anos",A.criancas||0,XF.int],["Idosos 60+",A.idosos||0,XF.int]],[[1,1],[2,4],[5,7],[8,9]]);
   section(ws,N,"Indicadores por bairro");
   const ind=(nome,a)=>{const n=a.total;return [nome,n,a.familias,fr(a.bf,n),fr(a.semEsc,n),fr(a.renda[0],n),n?1-a.inf.esgoto/n:null,a.rendaN?a.renda_media:null,vuln(a)]};
   const linhas=bairros.map(b=>ind(b,R.bairros[b]||aggregate([])));if(!scope)linhas.push(ind("Total do município",R.todos));
-  table(ws,[["Bairro"],["Pessoas",XF.int],["Famílias",XF.int],["Bolsa Família",XF.pct],["Sem escolaridade",XF.pct],["Extrema pobreza",XF.pct],["Sem esgoto",XF.pct],["Renda per capita",XF.brl],["Índice de vulnerabilidade",XF.idx]],linhas,{total:!scope});
-  note(ws,N,"Índice de vulnerabilidade de 0 a 100: combina Bolsa Família, escolaridade, renda e saneamento das pessoas cadastradas. Extrema pobreza = renda per capita de até R$ 218.");
-  const dist=(titulo,cab,itens,base)=>{section(ws,3,titulo);table(ws,[[cab],["Pessoas",XF.int],["% do total",XF.pct]],itens.map(([l,v])=>[l,v||0,fr(v||0,base)]))};
-  dist("Escolaridade","Nível",ESC.map((e,i)=>[e,A.esc[i]]),t);
-  dist("Renda per capita","Faixa",RENDA.map((e,i)=>[e,A.renda[i]]),t);
-  dist("Benefícios sociais","Programa",Object.entries(A.ben||{}),t);
+  const hb=table(ws,[["Bairro"],["Pessoas",XF.int],["Famílias",XF.int],["Bolsa Família",XF.pct],["Sem escolaridade",XF.pct],["Extrema pobreza",XF.pct],["Sem esgoto",XF.pct],["Renda per capita",XF.brl],["Índice de vulnerabilidade",XF.idx]],linhas,{total:!scope});
+  linhas.forEach((l,k)=>{const v=l[8];if(v==null)return;const [bg,fg]=v>=55?XL.alta:v>=35?XL.media:XL.baixa;const c=ws.getCell(hb+1+k,9);c.fill=fill(bg);c.font=font({bold:true,color:{argb:fg}});c.alignment={vertical:"middle",horizontal:"center"}});
+  note(ws,N,"Índice de vulnerabilidade de 0 a 100 (combina Bolsa Família, escolaridade, renda e saneamento): verde abaixo de 35 · âmbar de 35 a 54 · vermelho de 55 em diante. Extrema pobreza = renda per capita de até R$ 218.");
+  const dist=(titulo,cab,colN,itens,base,cor)=>{section(ws,N,titulo);
+    const h=table(ws,[[cab],[colN,XF.int],["%",XF.pct]],itens.map(([l,v])=>[l,v||0,fr(v||0,base)]),{plain:true});
+    for(let c=4;c<=7;c++){const x=ws.getCell(h,c);x.fill=fill(XL.brand);x.border={top:{style:"thin",color:{argb:XL.brand}},bottom:{style:"medium",color:{argb:XL.gold}}}}
+    ws.mergeCells(h,4,h,7);const hc=ws.getCell(h,4);hc.value="Distribuição";hc.font=font({bold:true,size:9.5,color:{argb:XL.white}});hc.alignment={vertical:"middle",indent:1};
+    itens.forEach(([l,v],k)=>{const r=h+1+k,f=fr(v||0,base)||0;
+      for(let x=4;x<=7;x++){const y=ws.getCell(r,x);y.fill=fill(k%2?XL.zebra:XL.white);y.border=x===7?{top:hair,bottom:hair,right:hair}:{top:hair,bottom:hair}}
+      ws.mergeCells(r,4,r,7);const c=ws.getCell(r,4);c.value=f>0?"█".repeat(Math.max(1,Math.round(f*40))):"";
+      c.font={name:FN,size:8,color:{argb:typeof cor==="function"?cor(k):cor}};c.alignment={vertical:"middle",indent:1}})};
+  dist("Escolaridade","Nível","Pessoas",ESC.map((e,i)=>[e,A.esc[i]]),t,k=>k===0?XL.alta[1]:XL.brand2);
+  dist("Renda per capita","Faixa","Pessoas",RENDA.map((e,i)=>[e,A.renda[i]]),t,k=>k===0?XL.alta[1]:k===4?XL.muted:XL.cacau);
+  dist("Benefícios sociais","Programa","Pessoas",Object.entries(A.ben||{}),t,XL.gold);
   const sd=A.semDoc||{},dn=A.docN||0;
-  section(ws,3,"Pessoas sem documento");table(ws,[["Documento"],["Sem o documento",XF.int],["% sem",XF.pct]],Object.keys(DOCS).map(k=>[DOCS[k].l,sd[k]||0,fr(sd[k]||0,dn)]));
+  dist("Pessoas sem documento","Documento","Sem o documento",Object.keys(DOCS).map(k=>[DOCS[k].l,sd[k]||0]),dn,XL.alta[1]);
   const infL={agua:"Água encanada",esgoto:"Rede de esgoto",energia:"Energia elétrica",lixo:"Coleta de lixo",calcamento:"Rua calçada"};
-  section(ws,3,"Acesso a serviços");table(ws,[["Serviço"],["Com acesso",XF.int],["% com acesso",XF.pct]],Object.keys(infL).map(k=>[infL[k],A.inf[k]||0,fr(A.inf[k]||0,t)]));
+  dist("Acesso a serviços","Serviço","Com acesso",Object.keys(infL).map(k=>[infL[k],A.inf[k]||0]),t,XL.brand);
 
   /* aba 2: lista nominal */
   let nn=0;
   if(nominal&&can("nominal")){const L=state.records.filter(r=>!scope||r.bairro===scope).sort((a,b)=>(a.bairro||"").localeCompare(b.bairro||"","pt-BR")||(a.nome||"").localeCompare(b.nome||"","pt-BR"));nn=L.length;
-    const wl=sheet("Lista nominal",[40,9,22,15,18,46],true),n2=6;
+    const wl=sheet("Lista nominal",[40,9,22,15,18,46],true,XL.cacau),n2=6;
     banner(wl,n2,`Lista nominal · ${L.length} ${L.length===1?"pessoa":"pessoas"}`,scope?`Bairro ${scope} · Almadina-BA`:"Município de Almadina-BA · todos os bairros");
-    note(wl,n2,"Contém dados pessoais: uso restrito, conforme a Lei Geral de Proteção de Dados (LGPD).",XL.bad);
+    {const r=wl._r;for(let i=1;i<=n2;i++)wl.getCell(r,i).fill=fill(XL.alta[0]);wl.mergeCells(r,1,r,n2);const c=wl.getCell(r,1);
+      c.value="Contém dados pessoais: uso restrito, conforme a Lei Geral de Proteção de Dados (LGPD).";c.font=font({size:9.5,bold:true,color:{argb:XL.alta[1]}});c.alignment={vertical:"middle",indent:1};
+      c.border={left:{style:"thick",color:{argb:XL.alta[1]}}};wl.getRow(r).height=24;wl._r=r+2}
     const hr=table(wl,[["Nome"],["Idade",XF.int],["Bairro"],["Bolsa Família"],["Renda per capita",XF.brl],["Documentos que não possui"]],
       L.map(r=>{const a=age(r.nasc);return [r.nome||"",a,r.bairro||"",r.bf==="sim"?"Sim":"Não",r.rendaFam!==""&&r.rendaFam!=null?percap(r):null,missingDocs(r).map(k=>DOCS[k].l).join(", ")||"—"]}),{wrap:true});
     wl.views=[{state:"frozen",ySplit:hr,showGridLines:false}];if(L.length)wl.autoFilter={from:{row:hr,column:1},to:{row:hr+L.length,column:n2}};
     wl.pageSetup.printTitlesRow=`${hr}:${hr}`;
-    for(let r=hr+1;r<=hr+L.length;r++){[4,6].forEach(i=>{const c=wl.getCell(r,i);c.alignment={...c.alignment,horizontal:"left",wrapText:true}})}
+    L.forEach((p,k)=>{const r=hr+1+k;const bf=wl.getCell(r,4);bf.alignment={vertical:"middle",horizontal:"center"};bf.font=p.bf==="sim"?font({bold:true,color:{argb:XL.cacau}}):font({color:{argb:XL.muted}});
+      const d=wl.getCell(r,6);d.font=font({color:{argb:d.value!=="—"?XL.alta[1]:XL.muted}})});
   }
   const buf=await wb.xlsx.writeBuffer();
   return {blob:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),nn};
