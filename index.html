@@ -866,7 +866,7 @@ function go(v){
   window.scrollTo({top:0});
 }
 /* controle da Smart TV: Painel/Bairros, filtro de bairro (Todos, Centro…) e indicador do mapa clicados no computador mudam a tela da TV */
-function sendTela(v){v=v||state.view;if(v!=="painel"&&v!=="bairros")return;try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 $$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view);sendTela(t.dataset.view)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
@@ -1268,7 +1268,7 @@ $("#tvBtn").onclick=()=>{setTV(!document.body.classList.contains("tv"),true);toa
 window.addEventListener("hashchange",()=>{if(location.hash==="#tv"&&!document.body.classList.contains("tv"))setTV(true)});
 (function(){const sv=ls("sig_tv");if(location.hash==="#tv"||sv==="1"||(sv==null&&isTvDevice()))setTV(true,false,true)})();
 $("#logoutBtn").onclick=()=>{if(!state.me)return;logAudit("acesso","Saiu do modo administrativo","Administrador","");closeModal();logout(true);toast("Você saiu do modo administrativo")};
-$("#themeBtn").onclick=()=>{const n=effTheme()==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",n);ls("sig_tema",n);toast(n==="dark"?"Modo escuro ativado":"Modo claro ativado")};
+$("#themeBtn").onclick=()=>{const n=effTheme()==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",n);ls("sig_tema",n);sendTela(null,true);toast(n==="dark"?"Modo escuro ativado":"Modo claro ativado")};
 
 /* ---------- inicialização ---------- */
 state.db=undefined;state.resumo=buildResumo([]);go("painel");
@@ -1437,6 +1437,7 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
   db.doc("publico/bairros").onSnapshot(s=>{try{applyBairros(s.exists?s.data().lista:null)}catch(e){}},()=>{});
   let telaPrim=true;db.doc("publico/tela").onSnapshot(s=>{try{const prim=telaPrim;telaPrim=false;if(!isTvDevice()||!s.exists)return;const d=s.data()||{},v=d.view;
     if(prim&&!(Date.now()-Date.parse(d.quando||0)<30*60000))return;let ch=false;
+    if((d.tema==="dark"||d.tema==="light")&&d.tema!==effTheme()){document.documentElement.setAttribute("data-theme",d.tema);ls("sig_tema",d.tema)}
     if(typeof d.filtro==="string"&&d.filtro!==state.filter){if(!d.filtro||BAIRROS.includes(d.filtro)){state.filter=d.filtro;state.telaPend=null;ch=true}else state.telaPend=d.filtro}
     if(d.metrica&&METRICS[d.metrica]&&d.metrica!==state.mapMetric){state.mapMetric=d.metrica;ch=true}
     if((v==="painel"||v==="bairros")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel()}catch(e){}},()=>{});
