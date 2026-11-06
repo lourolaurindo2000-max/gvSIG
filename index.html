@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <!-- Biblioteca oficial do Supabase (@supabase/supabase-js 2.57.4), instalada pelo npm; se faltar, usa a CDN -->
 <script src="vendor/supabase.js"></script>
 <script>window.supabase||document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"><\/script>')</script>
@@ -419,7 +419,7 @@ html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf]{dis
     <section class="view" id="v-painel">
       <div class="head">
         <div><div class="eyebrow">Mapeamento social · Centro, Massaranduba, Liberdade e Bairro da Horta</div><h2>Painel do município</h2></div>
-        <div class="head-tools"><div class="chips" id="chipsPainel" role="group" aria-label="Filtrar por bairro"></div><button class="btn" type="button" data-pdf>Relatório PDF</button></div>
+        <div class="head-tools"><div class="chips" id="chipsPainel" role="group" aria-label="Filtrar por bairro"></div><button class="btn" type="button" data-pdf>Gerar Relatório</button></div>
       </div>
       <div class="kpis" id="kpis"></div>
       <div class="grid">
@@ -446,14 +446,14 @@ html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf]{dis
 
     <!-- BAIRROS -->
     <section class="view" id="v-bairros" hidden>
-      <div class="head"><div><div class="eyebrow">Indicadores territoriais</div><h2>Bairros de Almadina</h2><p>Índice de vulnerabilidade calculado com renda, escolaridade, benefícios e saneamento das pessoas cadastradas.</p></div><button class="btn" type="button" data-pdf>Relatório PDF</button></div>
+      <div class="head"><div><div class="eyebrow">Indicadores territoriais</div><h2>Bairros de Almadina</h2><p>Índice de vulnerabilidade calculado com renda, escolaridade, benefícios e saneamento das pessoas cadastradas.</p></div><button class="btn" type="button" data-pdf>Gerar Relatório</button></div>
       <div class="bairros" id="bairrosBox"></div>
     </section>
 
     <!-- PESSOAS -->
     <section class="view" id="v-pessoas" hidden>
       <div class="head"><div><div class="eyebrow">Modo administrativo</div><h2>Pessoas cadastradas</h2><p id="countTxt"></p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-pdf>Relatório PDF</button><button class="btn" id="btnCsv" type="button" data-perm="exportar" hidden>Exportar planilha (CSV)</button><button class="btn pri" type="button" data-go="cadastro" data-perm="editar" hidden>+ Novo cadastro</button></div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-pdf>Gerar Relatório</button><button class="btn" id="btnCsv" type="button" data-perm="exportar" hidden>Exportar planilha (CSV)</button><button class="btn pri" type="button" data-go="cadastro" data-perm="editar" hidden>+ Novo cadastro</button></div></div>
       <div class="toolbar">
         <input id="q" type="search" placeholder="Buscar por nome, CPF, NIS ou mãe">
         <select id="fBairro"><option value="">Todos os bairros</option></select>
@@ -986,64 +986,88 @@ function tituloValid(t){t=digits(t);if(t.length!==12||/^(\d)\1+$/.test(t))return
   let d2=(+t[8]*7+ +t[9]*8+d1*9)%11;if(d2===10)d2=0;if(d2===0&&(uf===1||uf===2))d2=1;return d1===+t[10]&&d2===+t[11]}
 function susValid(c){c=digits(c);if(c.length!==15||!/^[12789]/.test(c))return false;let s=0;for(let i=0;i<15;i++)s+=+c[i]*(15-i);return s%11===0}
 
-/* relatório em PDF */
-const PRINT={brand:[20,81,63],accent:[201,119,43],fg:[23,35,29],muted:[90,107,97],line:[211,219,210],soft:[233,238,232],bad:[178,59,59]};
-const PRINT_B={"var(--b1)":"#df4f9a","var(--b2)":"#6a7ddf","var(--b3)":"#ec9533","var(--b4)":"#1fa598"};
-const hexRgb=h=>{h=(PRINT_B[h]||h||"#14513f").replace("#","");return [parseInt(h.slice(0,2),16)||0,parseInt(h.slice(2,4),16)||0,parseInt(h.slice(4,6),16)||0]};
-function buildPDF(scope,nominal){
-  const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw {code:"pdf"};
-  const doc=new J({unit:"mm",format:"a4"}),W=210,H=297,M=14,CW=W-2*M;let y=0;
+/* relatório em Excel (.xlsx) */
+const XL={brand:"FF14513F",accent:"FFC9772B",fg:"FF17231D",muted:"FF5A6B61",line:"FFD3DBD2",soft:"FFE9EEE8",zebra:"FFF6F8F5",bad:"FFB23B3B",white:"FFFFFFFF",pale:"FFDCEBE4"};
+const XF={int:"#,##0",pct:"0%",brl:'"R$" #,##0.00',idx:"0"};
+async function buildXLSX(scope,nominal){
+  const X=window.ExcelJS;if(!X)throw {code:"xlsx"};
   const R=state.resumo||buildResumo([]),A=scope?R.bairros[scope]:R.todos,bairros=scope?[scope]:BAIRROS.slice();
-  const txt=(t,x,yy,o)=>{o=o||{};doc.setFont("helvetica",o.b?"bold":"normal");doc.setFontSize(o.s||9);doc.setTextColor(...(o.c||PRINT.fg));doc.text(String(t),x,yy,{align:o.a||"left"})};
-  const fit=(t,w,s)=>{t=String(t==null?"":t);doc.setFontSize(s||8);if(doc.getTextWidth(t)<=w)return t;while(t.length>1&&doc.getTextWidth(t+"…")>w)t=t.slice(0,-1);return t+"…"};
-  const head=()=>{doc.setFillColor(...PRINT.brand);doc.rect(0,0,W,20,"F");doc.setFillColor(...PRINT.accent);doc.roundedRect(M,5,17,10,1.5,1.5,"F");txt("SIG",M+8.5,12,{b:1,s:12,a:"center",c:[27,18,10]});
-    txt("Sistema Integrado de Gestão",M+21,10,{b:1,s:11,c:[255,255,255]});txt("PREFEITURA DE ALMADINA · BAHIA",M+21,15,{s:7.5,c:[220,235,228]});y=30};
-  const ensure=h=>{if(y+h>H-18){doc.addPage();head()}};
-  const section=t=>{ensure(14);txt(t,M,y,{b:1,s:11.5});doc.setDrawColor(...PRINT.line);doc.line(M,y+2,W-M,y+2);y+=8};
-  head();
-  txt("Relatório de mapeamento social",M,y,{b:1,s:17});y+=7;
-  txt(scope?`Bairro ${scope} · Almadina-BA`:"Município de Almadina-BA · todos os bairros",M,y,{s:10,c:PRINT.muted});y+=5;
-  txt(`Gerado em ${new Date().toLocaleString("pt-BR")}${state.me?" por "+state.me.nome+" ("+PERFIS[state.me.perfil].l+")":""}`,M,y,{s:8.5,c:PRINT.muted});y+=9;
-  const t=A.total||0,k=[["Pessoas cadastradas",String(t)],["Famílias",String(A.familias||0)],["No Bolsa Família",pct(A.bf,t)+"%"],["Sem escolaridade",pct(A.semEsc,t)+"%"],["Renda per capita média",A.rendaN?fmtBRL(A.renda_media):"—"],["Crianças (até 14) / idosos (60+)",`${A.criancas||0} / ${A.idosos||0}`]];
-  const bw=(CW-8)/3;k.forEach((x,i)=>{const cx=M+(i%3)*(bw+4),cy=y+Math.floor(i/3)*20;doc.setFillColor(...(i===0?PRINT.brand:PRINT.soft));doc.roundedRect(cx,cy,bw,17,2,2,"F");
-    txt(x[0],cx+4,cy+6,{s:7.5,c:i===0?[220,235,228]:PRINT.muted});txt(x[1],cx+4,cy+13.5,{b:1,s:13,c:i===0?[255,255,255]:PRINT.fg})});y+=44;
-  section("Indicadores por bairro");
-  const cols=[["Bairro",38,"l"],["Pessoas",16],["Famílias",17],["B. Família",18],["Sem esc.",17],["Ext. pobr.",19],["Sem esgoto",19],["Renda p/c",23],["Índice",15]];
-  const row=(vals,o)=>{o=o||{};ensure(7);if(o.fill){doc.setFillColor(...o.fill);doc.rect(M,y-4.6,CW,6.6,"F")}let x=M;vals.forEach((v,i)=>{const [_,w,al]=cols[i];const s=fit(v,w-3,7.8);txt(s,al==="l"?x+2:x+w-2,y,{s:7.8,b:o.b,a:al==="l"?"left":"right",c:o.c});x+=w});doc.setDrawColor(...PRINT.line);doc.line(M,y+2,W-M,y+2);y+=6.6};
-  row(cols.map(c=>c[0]),{b:1,fill:PRINT.soft,c:PRINT.muted});
-  for(const b of bairros){const a=R.bairros[b]||aggregate([]),n=a.total;const v=vuln(a);row([b,n,a.familias,n?pct(a.bf,n)+"%":"—",n?pct(a.semEsc,n)+"%":"—",n?pct(a.renda[0],n)+"%":"—",n?100-pct(a.inf.esgoto,n)+"%":"—",a.rendaN?fmtBRL(a.renda_media):"—",v==null?"—":v])}
-  if(!scope){const a=R.todos,n=a.total;row(["Total do município",n,a.familias,n?pct(a.bf,n)+"%":"—",n?pct(a.semEsc,n)+"%":"—",n?pct(a.renda[0],n)+"%":"—",n?100-pct(a.inf.esgoto,n)+"%":"—",a.rendaN?fmtBRL(a.renda_media):"—",vuln(a)??"—"],{b:1})}
-  y+=2;txt("Índice = vulnerabilidade de 0 a 100: combina Bolsa Família, escolaridade, renda e saneamento das pessoas cadastradas.",M,y,{s:7,c:PRINT.muted});y+=8;
-  const bars=(title,items,color)=>{const need=16+items.length*6.4;if(need<H-60)ensure(need);section(title);const mx=Math.max(1,...items.map(i=>i[2]||100));for(const [l,v,max,cor] of items){ensure(7);txt(fit(l,52,8.2),M,y,{s:8.2});const w=CW-80;doc.setFillColor(...PRINT.soft);doc.roundedRect(M+56,y-3.3,w,4,1,1,"F");const f=Math.max(0,Math.min(1,v/(max||100)));if(f>0){doc.setFillColor(...(cor||color));doc.roundedRect(M+56,y-3.3,Math.max(1.5,w*f),4,1,1,"F")}txt(max?String(v):v+"%",W-M,y,{s:8.2,b:1,a:"right"});y+=6.4}y+=3};
-  if(!scope)bars("Bolsa Família por bairro",BAIRROS.map(b=>{const a=R.bairros[b];return [b,a&&a.total?pct(a.bf,a.total):0,0,hexRgb(BCOLOR[b])]}),PRINT.accent);
-  bars("Escolaridade",ESC.map((e,i)=>[e,A.esc[i]||0,Math.max(1,...A.esc),i===0?PRINT.bad:PRINT.brand]),PRINT.brand);
-  const sd=A.semDoc||{},dn=A.docN||0;bars("Pessoas sem documento",Object.keys(DOCS).map(k=>[DOCS[k].l,dn?Math.round((sd[k]||0)/dn*100):0,0,k==="cpf"||k==="certidao"?PRINT.bad:PRINT.accent]),PRINT.accent);
+  const wb=new X.Workbook();wb.creator="SIG Almadina";wb.company="Prefeitura de Almadina";wb.created=new Date();
+  const thin={style:"thin",color:{argb:XL.line}},box={top:thin,left:thin,bottom:thin,right:thin};
+  const fill=c=>({type:"pattern",pattern:"solid",fgColor:{argb:c}});
+  const ano=new Date().getFullYear(),quando=new Date().toLocaleString("pt-BR"),por=state.me?` por ${state.me.nome} (${PERFIS[state.me.perfil].l})`:"";
+  const sheet=(nome,widths,land)=>{const ws=wb.addWorksheet(nome,{views:[{showGridLines:false}],properties:{defaultRowHeight:18},
+      pageSetup:{paperSize:9,orientation:land?"landscape":"portrait",fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.4,right:.4,top:.5,bottom:.6,header:.3,footer:.3}},
+      headerFooter:{oddFooter:`&L&8SIG Versão 1.0 · © ${ano} André Almeida&R&8Página &P de &N`}});
+    ws.columns=widths.map(w=>({width:w}));ws._r=1;return ws};
+  const banner=(ws,n,titulo,sub)=>{let r=ws._r;
+    ws.mergeCells(r,1,r,n);let c=ws.getCell(r,1);c.value="SIG · Sistema Integrado de Gestão";c.font={size:16,bold:true,color:{argb:XL.white}};c.fill=fill(XL.brand);c.alignment={vertical:"middle",indent:1};ws.getRow(r).height=32;r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value="PREFEITURA DE ALMADINA · BAHIA";c.font={size:9,bold:true,color:{argb:XL.pale}};c.fill=fill(XL.brand);c.alignment={vertical:"top",indent:1};ws.getRow(r).height=18;r++;
+    ws.mergeCells(r,1,r,n);ws.getCell(r,1).fill=fill(XL.accent);ws.getRow(r).height=5;r+=2;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=titulo;c.font={size:18,bold:true,color:{argb:XL.fg}};ws.getRow(r).height=26;r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=sub;c.font={size:11,color:{argb:XL.muted}};r++;
+    ws.mergeCells(r,1,r,n);c=ws.getCell(r,1);c.value=`Gerado em ${quando}${por}`;c.font={size:9,italic:true,color:{argb:XL.muted}};r+=2;ws._r=r};
+  const section=(ws,n,t)=>{const r=ws._r;ws.mergeCells(r,1,r,n);const c=ws.getCell(r,1);c.value=t;c.font={size:13,bold:true,color:{argb:XL.brand}};
+    for(let i=1;i<=n;i++)ws.getCell(r,i).border={bottom:{style:"medium",color:{argb:XL.brand}}};ws.getRow(r).height=22;ws._r=r+2};
+  const table=(ws,cols,rows,o)=>{o=o||{};let r=ws._r;const hr=r;
+    cols.forEach((col,i)=>{const c=ws.getCell(r,i+1);c.value=col[0];c.font={bold:true,size:10,color:{argb:XL.white}};c.fill=fill(XL.brand);c.border=box;c.alignment={vertical:"middle",horizontal:i?"center":"left",wrapText:true,indent:i?0:1}});ws.getRow(r).height=30;r++;
+    rows.forEach((vals,k)=>{const tot=o.total&&k===rows.length-1;vals.forEach((v,i)=>{const c=ws.getCell(r,i+1),f=cols[i][1];c.value=v==null?"—":v;if(f&&typeof v==="number")c.numFmt=f;
+      c.font={size:10,bold:!!tot,color:{argb:XL.fg}};c.border=tot?{...box,top:{style:"medium",color:{argb:XL.brand}}}:box;if(tot)c.fill=fill(XL.soft);else if(k%2)c.fill=fill(XL.zebra);
+      c.alignment={vertical:"middle",horizontal:i?"right":"left",indent:i?1:1,wrapText:!i&&!!o.wrap}});ws.getRow(r).height=19;r++});
+    ws._r=r+1;return hr};
+  const note=(ws,n,t,cor)=>{const r=ws._r;ws.mergeCells(r,1,r,n);const c=ws.getCell(r,1);c.value=t;c.font={size:9,italic:true,color:{argb:cor||XL.muted}};c.alignment={wrapText:true,vertical:"top"};ws.getRow(r).height=28;ws._r=r+2};
+  const fr=(a,b)=>b?a/b:null;
+
+  /* aba 1: resumo */
+  const ws=sheet("Resumo",[34,13,13,14,15,15,14,17,14]),N=9,t=A.total||0;
+  banner(ws,N,"Relatório de mapeamento social",scope?`Bairro ${scope} · Almadina-BA`:"Município de Almadina-BA · todos os bairros");
+  section(ws,3,"Indicadores gerais");
+  table(ws,[["Indicador"],["Valor"]],[
+    ["Pessoas cadastradas",t],["Famílias",A.familias||0],["Pessoas no Bolsa Família",fr(A.bf,t)],["Sem escolaridade",fr(A.semEsc,t)],
+    ["Renda per capita média",A.rendaN?A.renda_media:null],["Crianças (até 14 anos)",A.criancas||0],["Idosos (60 anos ou mais)",A.idosos||0]]);
+  {const r0=ws._r-8;[XF.int,XF.int,XF.pct,XF.pct,XF.brl,XF.int,XF.int].forEach((f,i)=>{const c=ws.getCell(r0+i,2);if(typeof c.value==="number")c.numFmt=f})}
+  section(ws,N,"Indicadores por bairro");
+  const ind=(nome,a)=>{const n=a.total;return [nome,n,a.familias,fr(a.bf,n),fr(a.semEsc,n),fr(a.renda[0],n),n?1-a.inf.esgoto/n:null,a.rendaN?a.renda_media:null,vuln(a)]};
+  const linhas=bairros.map(b=>ind(b,R.bairros[b]||aggregate([])));if(!scope)linhas.push(ind("Total do município",R.todos));
+  table(ws,[["Bairro"],["Pessoas",XF.int],["Famílias",XF.int],["Bolsa Família",XF.pct],["Sem escolaridade",XF.pct],["Extrema pobreza",XF.pct],["Sem esgoto",XF.pct],["Renda per capita",XF.brl],["Índice de vulnerabilidade",XF.idx]],linhas,{total:!scope});
+  note(ws,N,"Índice de vulnerabilidade de 0 a 100: combina Bolsa Família, escolaridade, renda e saneamento das pessoas cadastradas. Extrema pobreza = renda per capita de até R$ 218.");
+  const dist=(titulo,cab,itens,base)=>{section(ws,3,titulo);table(ws,[[cab],["Pessoas",XF.int],["% do total",XF.pct]],itens.map(([l,v])=>[l,v||0,fr(v||0,base)]))};
+  dist("Escolaridade","Nível",ESC.map((e,i)=>[e,A.esc[i]]),t);
+  dist("Renda per capita","Faixa",RENDA.map((e,i)=>[e,A.renda[i]]),t);
+  dist("Benefícios sociais","Programa",Object.entries(A.ben||{}),t);
+  const sd=A.semDoc||{},dn=A.docN||0;
+  section(ws,3,"Pessoas sem documento");table(ws,[["Documento"],["Sem o documento",XF.int],["% sem",XF.pct]],Object.keys(DOCS).map(k=>[DOCS[k].l,sd[k]||0,fr(sd[k]||0,dn)]));
   const infL={agua:"Água encanada",esgoto:"Rede de esgoto",energia:"Energia elétrica",lixo:"Coleta de lixo",calcamento:"Rua calçada"};
-  bars("Acesso a serviços",Object.keys(infL).map(k=>[infL[k],t?Math.round((A.inf[k]||0)/t*100):0,0,PRINT.brand]),PRINT.brand);
+  section(ws,3,"Acesso a serviços");table(ws,[["Serviço"],["Com acesso",XF.int],["% com acesso",XF.pct]],Object.keys(infL).map(k=>[infL[k],A.inf[k]||0,fr(A.inf[k]||0,t)]));
+
+  /* aba 2: lista nominal */
   let nn=0;
   if(nominal&&can("nominal")){const L=state.records.filter(r=>!scope||r.bairro===scope).sort((a,b)=>(a.bairro||"").localeCompare(b.bairro||"","pt-BR")||(a.nome||"").localeCompare(b.nome||"","pt-BR"));nn=L.length;
-    doc.addPage();head();section(`Lista nominal · ${L.length} ${L.length===1?"pessoa":"pessoas"}`);
-    const c2=[["Nome",60,"l"],["Idade",13],["Bairro",34,"l"],["Bolsa F.",15],["Renda p/c",24],["Sem documento",36,"l"]];
-    const row2=(vals,o)=>{o=o||{};if(y+7>H-18){doc.addPage();head();row2(c2.map(c=>c[0]),{b:1,fill:PRINT.soft,c:PRINT.muted})}if(o.fill){doc.setFillColor(...o.fill);doc.rect(M,y-4.6,CW,6.6,"F")}let x=M;vals.forEach((v,i)=>{const [_,w,al]=c2[i];txt(fit(v,w-3,7.6),al==="l"?x+2:x+w-2,y,{s:7.6,b:o.b,a:al==="l"?"left":"right",c:o.c});x+=w});doc.setDrawColor(...PRINT.line);doc.line(M,y+2,W-M,y+2);y+=6.6};
-    row2(c2.map(c=>c[0]),{b:1,fill:PRINT.soft,c:PRINT.muted});
-    for(const r of L){const a=age(r.nasc);row2([r.nome,a==null?"—":a,r.bairro,r.bf==="sim"?"Sim":"Não",r.rendaFam!==""&&r.rendaFam!=null?fmtBRL(percap(r)):"—",missingDocs(r).map(k=>DOCS[k].l).join(", ")||"—"])}}
-  const pages=doc.getNumberOfPages();for(let i=1;i<=pages;i++){doc.setPage(i);doc.setDrawColor(...PRINT.line);doc.line(M,H-12,W-M,H-12);
-    txt(`SIG Versão 1.0 · © ${new Date().getFullYear()} André Almeida${nominal&&nn?" · Contém dados pessoais: uso restrito (LGPD)":""}`,M,H-7,{s:7,c:nominal&&nn?PRINT.bad:PRINT.muted});txt(`Página ${i} de ${pages}`,W-M,H-7,{s:7,c:PRINT.muted,a:"right"})}
-  return doc.output("blob");
+    const wl=sheet("Lista nominal",[40,9,22,15,18,46],true),n2=6;
+    banner(wl,n2,`Lista nominal · ${L.length} ${L.length===1?"pessoa":"pessoas"}`,scope?`Bairro ${scope} · Almadina-BA`:"Município de Almadina-BA · todos os bairros");
+    note(wl,n2,"Contém dados pessoais: uso restrito, conforme a Lei Geral de Proteção de Dados (LGPD).",XL.bad);
+    const hr=table(wl,[["Nome"],["Idade",XF.int],["Bairro"],["Bolsa Família"],["Renda per capita",XF.brl],["Documentos que não possui"]],
+      L.map(r=>{const a=age(r.nasc);return [r.nome||"",a,r.bairro||"",r.bf==="sim"?"Sim":"Não",r.rendaFam!==""&&r.rendaFam!=null?percap(r):null,missingDocs(r).map(k=>DOCS[k].l).join(", ")||"—"]}),{wrap:true});
+    wl.views=[{state:"frozen",ySplit:hr,showGridLines:false}];if(L.length)wl.autoFilter={from:{row:hr,column:1},to:{row:hr+L.length,column:n2}};
+    wl.pageSetup.printTitlesRow=`${hr}:${hr}`;
+    for(let r=hr+1;r<=hr+L.length;r++){[4,6].forEach(i=>{const c=wl.getCell(r,i);c.alignment={...c.alignment,horizontal:"left",wrapText:true}})}
+  }
+  const buf=await wb.xlsx.writeBuffer();
+  return {blob:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),nn};
 }
 function openRelatorio(){
-  modal(`<h3>Relatório em PDF</h3><p>Resumo com indicadores, gráficos por bairro, escolaridade, documentação e serviços.</p>
+  modal(`<h3>Gerar Relatório</h3><p>Planilha Excel com indicadores gerais, tabela por bairro, escolaridade, renda, benefícios, documentação e serviços.</p>
     <form id="rf" novalidate><div class="f"><label for="rScope">Abrangência</label><select id="rScope"><option value="">Todo o município</option>${BAIRROS.map(b=>`<option value="${esc(b)}"${state.filter===b?" selected":""}>${esc(b)}</option>`).join("")}</select></div>
     ${can("nominal")?`<label class="chk-line"><input type="checkbox" id="rNom"> Incluir lista nominal das pessoas <span class="side-note">(contém dados pessoais, uso restrito)</span></label>`:""}
     <div class="f"><span class="msg" id="rMsg" style="color:var(--bad);font-size:13px"></span></div>
-    <div class="row"><button class="btn" type="button" id="rC">Cancelar</button><button class="btn pri" type="submit" id="rG">Gerar PDF</button></div></form>`);
+    <div class="row"><button class="btn" type="button" id="rC">Cancelar</button><button class="btn pri" type="submit" id="rG">Gerar Relatório</button></div></form>`);
   $("#rC").onclick=closeModal;
   $("#rf").onsubmit=async e=>{e.preventDefault();const msg=$("#rMsg"),btn=$("#rG"),scope=$("#rScope").value,nom=!!($("#rNom")&&$("#rNom").checked);
-    
+    if(!state.dl){msg.textContent="O download não está disponível nesta visualização.";return}
     btn.disabled=true;btn.textContent="Gerando…";
-    try{const blob=buildPDF(scope,nom);const nm=`SIG-Almadina-relatorio-${scope?scope.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-":""}${new Date().toISOString().slice(0,10)}.pdf`;
-      await state.dl.save({filename:nm,data:blob});closeModal();toast("Relatório pronto para salvar");logAudit("exportacao","Gerou relatório PDF",scope||"Todo o município",nom?"com lista nominal":"resumo")}
-    catch(err){msg.textContent=err&&err.code==="pdf"?"Não foi possível carregar o gerador de PDF. Verifique a internet e tente de novo.":"O download foi cancelado ou não pôde ser concluído.";btn.disabled=false;btn.textContent="Gerar PDF"}}}
+    try{const {blob}=await buildXLSX(scope,nom);const nm=`SIG-Almadina-relatorio-${scope?scope.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-":""}${new Date().toISOString().slice(0,10)}.xlsx`;
+      await state.dl.save({filename:nm,data:blob});closeModal();toast("Relatório pronto para salvar");logAudit("exportacao","Gerou relatório Excel",scope||"Todo o município",nom?"com lista nominal":"resumo")}
+    catch(err){console.error(err);msg.textContent=err&&err.code==="xlsx"?"Não foi possível carregar o gerador de planilhas. Verifique a internet e tente de novo.":"O download foi cancelado ou não pôde ser concluído.";btn.disabled=false;btn.textContent="Gerar Relatório"}}}
 document.addEventListener("click",e=>{if(e.target.closest("[data-pdf]"))openRelatorio()});
 
 
@@ -1371,7 +1395,7 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
   let ul=[];try{ul=JSON.parse(ls("sig_users")||"[]")}catch(e){}applyUsers(ul,true);
   setStatus("warn",msg);onRecords()}
 (async function(){
-  // downloads (relatório PDF e planilha) direto pelo navegador
+  // downloads (relatório Excel e planilha) direto pelo navegador
   state.dl={save:async({filename,data})=>{const u=URL.createObjectURL(data);const a=document.createElement("a");a.href=u;a.download=filename;a.rel="noopener";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),8000)}};
   if(!window.supabase||typeof window.supabase.createClient!=="function"){startLocal("Não foi possível carregar a biblioteca do Supabase. Modo local: os dados ficam só neste navegador.");return}
   let sb;
