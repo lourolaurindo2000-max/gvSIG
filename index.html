@@ -222,6 +222,12 @@ td.wrap-td{white-space:normal;min-width:220px;max-width:420px;font-size:13px;col
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .toolbar input,.toolbar select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:0}
 .toolbar input{flex:1 1 220px}
+.bstrip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.bs{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap}
+.bs:hover{background:var(--surface-2)}
+.bs i{width:10px;height:10px;border-radius:3px;flex:none;background:var(--muted)}
+.bs b{font-family:var(--f-display);font-variant-numeric:tabular-nums}
+.bs[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:8px;font-weight:600;font-size:14px;display:inline-flex;gap:6px;align-items:center;justify-content:center}
 .btn:hover{background:var(--surface-2)}
 .btn.pri{background:var(--brand-2);border-color:var(--brand-2);color:#fff}
@@ -529,6 +535,7 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
     <section class="view" id="v-pessoas" hidden>
       <div class="head"><div><div class="eyebrow">Modo administrativo</div><h2>Pessoas cadastradas</h2><p id="countTxt"></p></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-pdf>Gerar Relatório</button><button class="btn" id="btnCsv" type="button" data-perm="exportar" hidden>Exportar planilha (CSV)</button><button class="btn pri" type="button" data-go="cadastro" data-perm="editar" hidden>+ Novo cadastro</button></div></div>
+      <div class="bstrip" id="bStrip" role="group" aria-label="Pessoas por bairro (clique para filtrar)"></div>
       <div class="toolbar">
         <input id="q" type="search" placeholder="Buscar por nome, CPF, NIS ou mãe">
         <select id="fBairro"><option value="">Todos os bairros</option></select>
@@ -1054,12 +1061,20 @@ function renderBairros(){const nb=BAIRROS.length;$("#bairrosBox").style.gridTemp
 }
 
 /* ---------- render: Pessoas ---------- */
+function renderBStrip(fb){
+  const cnt={};for(const r of state.records){const b=r.bairro||"";cnt[b]=(cnt[b]||0)+1}
+  const nomes=BAIRROS.slice();for(const b in cnt)if(b&&!nomes.includes(b))nomes.push(b);
+  const fmt=n=>n.toLocaleString("pt-BR");
+  $("#bStrip").innerHTML=`<button class="bs" type="button" data-bs="" aria-pressed="${!fb}">Todos <b>${fmt(state.records.length)}</b></button>`+
+    nomes.map(b=>`<button class="bs" type="button" data-bs="${esc(b)}" aria-pressed="${fb===b}" title="Mostrar só ${esc(b)}"><i style="background:${BCOLOR[b]||"var(--muted)"}"></i>${esc(b)} <b>${fmt(cnt[b]||0)}</b></button>`).join("");
+}
 function renderPessoas(){
   const q=$("#q").value.trim().toLowerCase(),qd=digits(q),fb=$("#fBairro").value,fbf=$("#fBf").value;
   const coll=renderPessoas._c||(renderPessoas._c=new Intl.Collator("pt-BR")),max=state.pessoasMax||200;
   const list=state.records.filter(r=>(!fb||r.bairro===fb)&&(!fbf||r.bf===fbf)&&(!q||(r.nome||"").toLowerCase().includes(q)||(r.mae||"").toLowerCase().includes(q)||(qd&&(digits(r.cpf).includes(qd)||digits(r.nis).includes(qd)))))
     .sort((a,b)=>coll.compare(a.nome||"",b.nome||""));
   $("#countTxt").textContent=`${list.length} de ${state.records.length} cadastros`;
+  renderBStrip(fb);
   const tb=$("#tbody");
   if(!state.records.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><strong>Nenhuma pessoa cadastrada ainda</strong>Use “+ Novo cadastro” para registrar o primeiro cidadão. Os dados ficam salvos e aparecem em todos os computadores com acesso.</div></td></tr>`}
   else if(!list.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><strong>Nenhum resultado</strong>Ajuste a busca ou os filtros.</div></td></tr>`}
@@ -1417,6 +1432,7 @@ function editName(r){
     try{await saveRec(r.id,rec);closeModal();toast("Nome corrigido");logAudit("edicao","Corrigiu nome",nome,nome!==r.nome?`De "${r.nome}" para "${nome}"`:"Nome social")}
     catch(err){msg.textContent=errMsg(err);btn.disabled=false;btn.textContent="Salvar nome"}};
 }
+$("#bStrip").addEventListener("click",e=>{const b=e.target.closest("[data-bs]");if(!b)return;const fbS=$("#fBairro");const v=b.dataset.bs;fbS.value=[...fbS.options].some(o=>o.value===v)?v:"";state.pessoasMax=200;renderPessoas()});
 ["q","fBairro","fBf"].forEach(i=>$("#"+i).addEventListener("input",()=>{state.pessoasMax=200;renderPessoas()}));
 function showDetail(r){const a=age(r.nasc);const row=(l,v)=>v!==""&&v!=null&&!(Array.isArray(v)&&!v.length)?`<dt>${l}</dt><dd>${esc(Array.isArray(v)?v.join(", "):v)}</dd>`:"";const hd=t=>`<div class="hd">${t}</div>`;
   const infL={agua:"Água",esgoto:"Esgoto",energia:"Energia",lixo:"Coleta de lixo",calcamento:"Calçamento"};
