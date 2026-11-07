@@ -976,7 +976,7 @@ function applyUsers(l,live){state.users=cleanUsers(l);if(live)state.usersLive=tr
   if(state.view==="usuarios")renderUsuarios()}
 async function saveUsers(l){if(state.db)await state.db.doc("config/usuarios").set({lista:l,atualizadoEm:new Date().toISOString()});else{ls("sig_users",JSON.stringify(l));applyUsers(l,true)}}
 function setSession(u){state.me={id:u.id,usuario:u.usuario,nome:u.nome,perfil:u.perfil};state.admin=true;ss("sig_me",JSON.stringify({id:u.id}));applyPerms()}
-function logout(silent){state.me=null;state.admin=false;ss("sig_me",null);applyPerms();if(!silent)toast("Você saiu do sistema")}
+function logout(silent){state.me=null;state.admin=false;ss("sig_me",null);if(state.sair)state.sair();applyPerms();if(!silent)toast("Você saiu do sistema")}
 function applyPerms(){const on=!!state.me;$$("[data-perm]").forEach(e=>e.hidden=!can(e.dataset.perm));
   $("#adminBtn").classList.toggle("on",on);$("#adminLbl").textContent=on?"Modo administrativo ativo":"Configurações";$("#adminBtn").title=on?"Modo administrativo ativo: clique para sair":"Configurações: entrar no modo administrativo";$("#adminBtn").setAttribute("aria-label",$("#adminBtn").title);
   const need=VIEW_PERM[state.view];if(need&&!can(need))go("painel");else refresh()}
@@ -1023,8 +1023,7 @@ function editUsuario(u){const isNew=!u;
       await saveUsers(L);closeModal();toast(isNew?"Usuário criado":"Usuário atualizado");logAudit("usuario",isNew?"Criou usuário":"Editou usuário",nome,usuario+(det.length?" · "+det.join(", "):""))}
     catch(err){msg.textContent=errMsg(err);btn.disabled=false;btn.textContent=isNew?"Criar usuário":"Salvar alterações"}}}
 
-/* modo administrativo sem senha: um clique entra, outro sai.
-   A proteção real é o compartilhamento do link (Colaborador pode gravar; Visualizador só vê). */
+/* modo administrativo protegido por usuário e senha */
 const ADMIN_FIXO={id:"admin",usuario:"admin",nome:"Administrador",perfil:"admin"};
 PERFIS.admin.p=PERFIS.admin.p.filter(x=>x!=="usuarios");
 function adminEntrou(next){
@@ -1033,13 +1032,32 @@ function adminEntrou(next){
   try{go(next&&can(VIEW_PERM[next]||"ver")?next:"pessoas")}catch(e){console.error(e)}
   try{logAudit("acesso","Entrou no modo administrativo","Administrador","")}catch(e){}
   toast("Você está logado no modo administrador.")}
+/* tela de login: usuário e senha do administrador */
+let falhasLogin=0,bloqLoginAte=0;
+function pedirSenha(next){
+  modal(`<h3>Entrar no modo administrativo</h3><p>Informe o usuário e a senha do administrador.</p>
+    <form id="lf" novalidate>
+      <div class="f"><label for="lUser">Usuário</label><input id="lUser" maxlength="30" autocapitalize="none" spellcheck="false" autocomplete="username"></div>
+      <div class="f"><label for="lPw">Senha</label><input id="lPw" type="password" maxlength="100" autocomplete="current-password"></div>
+      <div class="f"><span class="msg" id="lMsg" style="color:var(--bad);font-size:13px"></span></div>
+      <div class="row"><button class="btn" type="button" id="lC">Cancelar</button><button class="btn pri" type="submit" id="lS">Entrar</button></div></form>`);
+  $("#lC").onclick=closeModal;
+  $("#lf").onsubmit=async e=>{e.preventDefault();const u=$("#lUser").value.trim().toLowerCase(),pw=$("#lPw").value,msg=$("#lMsg"),btn=$("#lS");msg.textContent="";
+    if(!u||!pw){msg.textContent="Informe o usuário e a senha.";return}
+    if(Date.now()<bloqLoginAte){msg.textContent="Muitas tentativas erradas. Aguarde 30 segundos e tente de novo.";return}
+    btn.disabled=true;btn.textContent="Entrando…";let ok=false;
+    try{ok=USER_RE.test(u)&&await autenticar(u,pw)}catch(err){console.error(err);msg.textContent="Não foi possível verificar a senha. Verifique a internet.";btn.disabled=false;btn.textContent="Entrar";return}
+    if(!ok){falhasLogin++;if(falhasLogin>=5){falhasLogin=0;bloqLoginAte=Date.now()+30000}msg.textContent="Usuário ou senha incorretos.";$("#lPw").value="";$("#lPw").focus();btn.disabled=false;btn.textContent="Entrar";return}
+    falhasLogin=0;adminEntrou(next)}}
 async function openLogin(next){
   if(isTvDevice()){toast("As configurações não ficam disponíveis na Smart TV");return}
   if(isAndroid()){toast("O modo administrativo só funciona em computador (Windows, Linux ou Mac)");return}
   if(state.db===undefined){toast("Aguarde a conexão com o banco de dados");return}
-  if(state.canWrite===false){modal(`<h3>Acesso somente leitura</h3><p>Sua conta pode ver o painel, mas não pode cadastrar. Peça ao responsável pelo sistema acesso de colaborador (Contributor) ou editor.</p><div class="row"><button class="btn pri" type="button" id="mOk">Entendi</button></div>`);$("#mOk").onclick=closeModal;return}
-  adminEntrou(next)}
-function restoreSession(){let s=null;try{s=JSON.parse(ss("sig_me")||"null")}catch(e){}if(s&&s.id==="admin"&&state.canWrite!==false&&!state.me&&!isTvDevice()&&!isAndroid())setSession(ADMIN_FIXO)}
+  if(state.authOk){adminEntrou(next);return}
+  pedirSenha(next)}
+/* o login fica guardado no navegador (sessão do Supabase) até a pessoa clicar em Sair */
+function restoreSession(){if(state.authOk&&!state.me&&!isTvDevice()&&!isAndroid())setSession(ADMIN_FIXO)}
+let autenticar=async()=>false;/* definida ao conectar ao Supabase */
 $("#adminBtn").onclick=()=>{if(!state.me){openLogin("pessoas");return}
   modal(`<h3>Modo administrativo ativo</h3><p>Você pode cadastrar, editar, excluir, exportar e configurar os bairros. Ao sair, o SIG volta a mostrar só o painel.</p><div class="row"><button class="btn" type="button" id="aC">Continuar</button><button class="btn danger solid" type="button" id="aOut">Sair do modo administrativo</button></div>`);
   $("#aC").onclick=closeModal;$("#aOut").onclick=()=>{logAudit("acesso","Saiu do modo administrativo","Administrador","");closeModal();logout(true);toast("Você saiu do modo administrativo")}};
@@ -1515,10 +1533,14 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
   state.dl={save:async({filename,data})=>{const u=URL.createObjectURL(data);const a=document.createElement("a");a.href=u;a.download=filename;a.rel="noopener";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),8000)}};
   if(!window.supabase||typeof window.supabase.createClient!=="function"){startLocal("Não foi possível carregar a biblioteca do Supabase. Modo local: os dados ficam só neste navegador.");return}
   let sb;
-  try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},realtime:{params:{eventsPerSecond:5}}})}
+  try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"sig-almadina-login"},realtime:{params:{eventsPerSecond:5}}})}
   catch(e){console.error(e);startLocal("Não foi possível conectar ao Supabase. Modo local ativo.");return}
   const db=criarBancoSupabase(sb);
-  state.db=db;state.canWrite=true;state.isOwner=false;window.__sig_supabase=sb;
+  state.db=db;state.isOwner=false;window.__sig_supabase=sb;
+  // login: sem sessão, a pessoa vê só o painel público (resumo); com sessão, lê e grava os cadastros
+  let sess=null;try{const r=await sb.auth.getSession();sess=r&&r.data?r.data.session:null}catch(e){}
+  if(sess&&(isTvDevice()||isAndroid())){try{await sb.auth.signOut()}catch(e){}sess=null}
+  state.authOk=!!sess;state.canWrite=!!sess;state.resumoPub=null;
   let gotLive=false;const timer=setTimeout(()=>{if(!gotLive)setStatus("warn","O banco de dados ainda não respondeu. Verifique a internet.")},10000);
   db.doc("config/usuarios").onSnapshot(s=>{try{applyUsers(s.exists?s.data().lista:[],true)}catch(e){}},()=>{applyUsers([],true)});
   db.doc("publico/bairros").onSnapshot(s=>{try{applyBairros(s.exists?s.data().lista:null)}catch(e){}},()=>{});
@@ -1528,9 +1550,18 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
     if(typeof d.filtro==="string"&&d.filtro!==state.filter){if(!d.filtro||BAIRROS.includes(d.filtro)){state.filter=d.filtro;state.telaPend=null;ch=true}else state.telaPend=d.filtro}
     if(d.metrica&&METRICS[d.metrica]&&d.metrica!==state.mapMetric){state.mapMetric=d.metrica;ch=true}
     if((v==="painel"||v==="bairros")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel()}catch(e){}},()=>{});
-  db.collection("pessoas").onSnapshot(snap=>{state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
-      gotLive=true;clearTimeout(timer);setStatus("live","Sincronizado em tempo real");onRecords()},
-    err=>{clearTimeout(timer);setStatus("warn","Não foi possível ler os cadastros no Supabase. Recarregue a página.")});
+  function ligarPessoas(){if(state.pessoasSub)return;
+    state.pessoasSub=db.collection("pessoas").onSnapshot(snap=>{if(!state.authOk)return;state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
+        gotLive=true;clearTimeout(timer);setStatus("live","Sincronizado em tempo real");onRecords()},
+      err=>{clearTimeout(timer);setStatus("warn","Não foi possível ler os cadastros no Supabase. Recarregue a página.")})}
+  db.doc("publico/resumo").onSnapshot(s=>{state.resumoPub=s.exists?s.data():null;
+      if(!state.authOk){gotLive=true;clearTimeout(timer);setStatus("live","Conectado · painel público");if(state.resumoPub){state.resumo=state.resumoPub;refresh()}}},()=>{});
+  autenticar=async(u,pw)=>{const r=await sb.auth.signInWithPassword({email:u+"@usuarios.sig-almadina.app",password:pw});
+    if(r.error){if(r.error.status===400||/invalid|credentials/i.test(r.error.message||""))return false;throw r.error}
+    state.authOk=true;state.canWrite=true;ligarPessoas();return true};
+  state.sair=()=>{if(!state.authOk)return;state.authOk=false;state.canWrite=false;if(state.pessoasSub){state.pessoasSub();state.pessoasSub=null}
+    state.records=[];state.recordsLoaded=false;state.resumo=state.resumoPub||buildResumo([]);setTimeout(()=>{sb.auth.signOut().catch(()=>{})},800);refresh()};
+  if(state.authOk){ligarPessoas();restoreSession()}
 })();
 document.querySelectorAll(".yr").forEach(e=>e.textContent=new Date().getFullYear());
 })();
