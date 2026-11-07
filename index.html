@@ -397,7 +397,7 @@ body.tv :focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 body.tv .ft-law .mq-track{animation-duration:60s}
 /* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
 html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf],html.tv-device .status{display:none!important}
-/* Android e celulares: sem modo administrativo; só em computadores (Windows, Linux, Mac) */
+/* Android, celulares e iPad: sem modo administrativo; só em computadores (Windows, Linux, Mac) */
 html.android-device #adminBtn,html.android-device #logoutBtn{display:none!important}
 /* TV menor (ex.: 1280x720 ou 960x540): mapa + 4 gráficos principais */
 @media (max-width:1399px),(max-height:700px){
@@ -1336,8 +1336,10 @@ const TV_UA=/smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|android tv|googlet
 (function(){const h=location.hash;if(h==="#smarttv"||h==="#naotv"){ls("sig_smarttv",h==="#smarttv"?"1":"0");if(h==="#naotv")ls("sig_tv","0");try{history.replaceState(null,"",h==="#smarttv"?"#tv":location.pathname+location.search)}catch(e){}}})();
 const isTvDevice=()=>{try{if(ls("sig_smarttv")==="1")return true;return TV_UA.test(navigator.userAgent||"")}catch(e){return false}};
 if(isTvDevice()){document.documentElement.classList.add("tv-device");if(state.me)logout(true)}
-/* aparelhos Android (celular e tablet) e qualquer celular (iPhone etc.) não têm acesso ao modo administrativo */
-const isAndroid=()=>{try{const d=navigator.userAgentData;if(d&&(d.mobile||/android/i.test(d.platform||"")))return true;return /android|iphone|ipod|windows phone|blackberry|bb10|kaios|opera mini|iemobile|mobile/i.test(navigator.userAgent||"")}catch(e){return false}};
+/* aparelhos Android (celular e tablet) e qualquer celular (iPhone etc.) ou iPad não têm acesso ao modo administrativo */
+const isAndroid=()=>{try{const d=navigator.userAgentData,ua=navigator.userAgent||"";if(d&&(d.mobile||/android/i.test(d.platform||"")))return true;
+  if(/Macintosh/i.test(ua)&&navigator.maxTouchPoints>1)return true;/* iPad com iPadOS se apresenta como Mac, mas tem tela de toque */
+  return /android|iphone|ipod|ipad|windows phone|blackberry|bb10|kaios|opera mini|iemobile|mobile/i.test(ua)}catch(e){return false}};
 if(isAndroid()){document.documentElement.classList.add("android-device");if(state.me)logout(true)}
 function fsEl(){return document.fullscreenElement||document.webkitFullscreenElement||null}
 function enterFs(){if(fsEl())return;const el=document.documentElement;try{const p=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
