@@ -495,6 +495,7 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
     <section class="view" id="v-emprego" hidden>
       <div class="head"><div><div class="eyebrow">Indicadores de trabalho e renda</div><h2>Emprego e desemprego</h2><p>Calculado automaticamente com a situação de trabalho das pessoas cadastradas.</p></div>
         <div class="head-tools"><div class="chips" id="chipsEmprego" role="group" aria-label="Filtrar por bairro"></div><button class="btn" type="button" data-pdf>Gerar Relatório</button></div></div>
+      <p class="notice" id="empAviso" hidden>Aguardando os dados de emprego. Eles aparecem assim que um administrador cadastrar ou editar uma pessoa com a versão atual do sistema.</p>
       <div class="kpis" id="kpisEmp"></div>
       <div class="grid">
         <div class="card s6"><h3>Taxa de desemprego por bairro</h3><p class="cap">% da força de trabalho sem emprego · verde abaixo de 8%, âmbar de 8% a 15%, vermelho acima de 15%</p><div class="chart"><canvas id="chDesBairro"></canvas></div></div>
@@ -788,7 +789,7 @@ function kpiBox(box,k){
 function renderChipsEmp(){const box=$("#chipsEmprego");box.innerHTML="";
   ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderEmprego();sendTela()};box.appendChild(c)})}
 function renderEmprego(){
-  renderChipsEmp();const R=state.resumo,a=curAgg(),z=a&&a.trab?a:aggregate([]);
+  renderChipsEmp();const R=state.resumo,a=curAgg(),z=a&&a.trab?a:aggregate([]);$("#empAviso").hidden=!(a&&a.total&&!a.trab);
   const N=x=>Math.round(x).toLocaleString("pt-BR"),P=x=>Math.round(x)+"%",PD=x=>(Math.round(x*10)/10).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
   const tx=x=>x&&x.forca?x.desemp/x.forca*100:null,r1=v=>v==null?0:Math.round(v*10)/10,taxa=(d,f)=>f?Math.round(d/f*1000)/10:0;
   kpiBox($("#kpisEmp"),[
@@ -800,7 +801,7 @@ function renderEmprego(){
   if(typeof Chart==="undefined")return;
   const C=["--c1","--c2","--c3","--c4","--c5","--c6"].map(css),OK=css("--ok"),WN=css("--warn"),BD=css("--bad"),mu=css("--muted"),ln=css("--line"),sel=state.filter;
   const cor=v=>v==null?ln:v>=15?BD:v>=8?WN:OK;
-  const pctX={min:0,ticks:{color:mu,callback:v=>v+"%"},grid:{color:ln}},pctY={beginAtZero:true,ticks:{color:mu,callback:v=>v+"%"},grid:{color:ln}},semGrade={ticks:{color:mu},grid:{display:false}};
+  const pv=v=>(+v).toLocaleString("pt-BR",{maximumFractionDigits:1})+"%",pctX={min:0,ticks:{color:mu,callback:pv},grid:{color:ln}},pctY={beginAtZero:true,ticks:{color:mu,callback:pv},grid:{color:ln}},semGrade={ticks:{color:mu},grid:{display:false}};
   const lab=[...BAIRROS,"Município"],ags=[...BAIRROS.map(b=>R&&R.bairros?R.bairros[b]:null),R?R.todos:null],tv=ags.map(x=>x&&x.trab?tx(x):null);
   mkChart("chDesBairro",{type:"bar",data:{labels:lab,datasets:[{label:"Taxa de desemprego",data:tv.map(r1),
       backgroundColor:tv.map((v,i)=>{const c=cor(v);return sel&&lab[i]!==sel&&i<BAIRROS.length?c+"55":c}),
