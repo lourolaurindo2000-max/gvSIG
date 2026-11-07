@@ -402,13 +402,19 @@ body.tv .ft-law .mq-track{animation-duration:60s}
 #tbOcup tr.des td{color:var(--bad);font-weight:600}
 #tbOcup tr.tot td{font-weight:700;border-top:2px solid var(--line)}
 #tbOcup tr.id60 td{color:var(--muted);font-style:italic}
+#tbOcup .l-short{display:none}
+body.tv #tbOcup .l-short{display:inline}
+body.tv #tbOcup .l-long{display:none}
 /* Emprego na Smart TV: 6 gráficos + tabela em 4 colunas x 2 linhas */
 body.tv #v-emprego .grid{flex:1;min-height:0;gap:clamp(6px,.6vw,12px);grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
 body.tv #v-emprego .grid>.card{grid-column:auto;min-height:0;display:flex;flex-direction:column;padding:clamp(8px,1vh,14px);overflow:hidden}
 body.tv #v-emprego .grid>.card.emp-tab{grid-column:span 2}
-body.tv .emp-tab .table-box{flex:1 1 auto;min-height:0;overflow:hidden}
-body.tv #tbOcup{font-size:clamp(9px,1.15vh,15px);line-height:1.2}
-body.tv #tbOcup td,body.tv #tbOcup th{padding:.15em clamp(4px,.4vw,8px);font-size:inherit}
+body.tv .emp-tab .table-box{flex:1 1 0;min-height:0;overflow:hidden;border:0;border-radius:0}
+body.tv .emp-tab .cap{display:none}
+body.tv #tbOcup{font-size:clamp(9px,1.15vh,15px);line-height:1.15;height:100%}
+body.tv #tbOcup td,body.tv #tbOcup th{padding:.1em .45em;font-size:inherit}
+body.tv #tbOcup th{text-transform:none;letter-spacing:0;font-size:.9em}
+body.tv #tbOcup td:first-child{font-weight:600}
 @media (max-width:900px){body.tv #v-emprego .grid{grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,minmax(0,1fr))}}
 /* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
 html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf],html.tv-device .status{display:none!important}
@@ -801,22 +807,28 @@ function kpiBox(box,k){
   k.forEach((x,i)=>{const c=box.children[i];c.querySelector(".sub").textContent=x.s;animarNum(c.querySelector(".val"),x.n,x.f,x.p)})}
 function renderChipsEmp(){const box=$("#chipsEmprego");box.innerHTML="";
   ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderEmprego();sendTela()};box.appendChild(c)})}
+const OCUP_CURTO={"Empregado(a) com carteira":"Com carteira","Servidor(a) público(a)":"Servidor público","Autônomo(a)":"Autônomo","Trabalhador(a) rural":"Trabalhador rural","Trabalho informal / bico":"Informal / bico","Desempregado(a)":"Desempregado","Aposentado(a) / Pensionista":"Aposentado / pensionista","Do lar":"Do lar","Estudante":"Estudante","Não se aplica (criança)":"Crianças","Não informado":"Não informado","Pessoas com 60 anos ou mais":"60 anos ou mais"};
+const rotTab=(l,c)=>c&&c!==l?`<span class="l-long">${esc(l)}</span><span class="l-short">${esc(c)}</span>`:esc(l);
 function renderTabOcup(R,sel){const tb=$("#tbOcup");if(!tb)return;
   const N=x=>Math.round(x||0).toLocaleString("pt-BR"),cols=[...BAIRROS.map(b=>({l:b,a:R&&R.bairros?R.bairros[b]:null})),{l:"Município",a:R?R.todos:null,m:1}];
   const v=(a,o)=>a&&a.trab?a.trab[o]||0:0,ni=a=>a?Math.max(0,(a.total||0)-OCUP.reduce((s,o)=>s+v(a,o),0)):0;
   const cl=c=>[c.m?"m":"",sel&&c.l===sel?"sel":""].join(" ").trim();
   const td=(c,x)=>`<td class="${cl(c)}">${N(x)}</td>`;
   const linhas=OCUP.map(o=>[o,c=>v(c.a,o)]).concat([["Não informado",c=>ni(c.a)]]);
-  tb.innerHTML=`<thead><tr><th>Situação</th>${cols.map(c=>`<th class="${cl(c)}">${esc(c.l)}</th>`).join("")}</tr></thead><tbody>`+
-    linhas.filter(([o,f])=>o!=="Não informado"||cols.some(c=>f(c))).map(([o,f])=>`<tr${o==="Desempregado(a)"?' class="des"':""}><td>${esc(o)}</td>${cols.map(c=>td(c,f(c))).join("")}</tr>`).join("")+
-    `<tr class="tot"><td>Total</td>${cols.map(c=>td(c,c.a?c.a.total:0)).join("")}</tr><tr class="id60"><td>Pessoas com 60 anos ou mais</td>${cols.map(c=>td(c,c.a?c.a.idosos:0)).join("")}</tr></tbody>`;
+  tb.innerHTML=`<thead><tr><th>Situação</th>${cols.map(c=>`<th class="${cl(c)}">${rotTab(c.l,c.l==="Bairro da Horta"?"B. da Horta":c.l==="Município"?"Total município":c.l)}</th>`).join("")}</tr></thead><tbody>`+
+    linhas.filter(([o,f])=>o!=="Não informado"||cols.some(c=>f(c))).map(([o,f])=>`<tr${o==="Desempregado(a)"?' class="des"':""}><td>${rotTab(o,OCUP_CURTO[o])}</td>${cols.map(c=>td(c,f(c))).join("")}</tr>`).join("")+
+    `<tr class="tot"><td>Total</td>${cols.map(c=>td(c,c.a?c.a.total:0)).join("")}</tr><tr class="id60"><td>${rotTab("Pessoas com 60 anos ou mais",OCUP_CURTO["Pessoas com 60 anos ou mais"])}</td>${cols.map(c=>td(c,c.a?c.a.idosos:0)).join("")}</tr></tbody>`;
   ajustarTabOcup()}
 /* na Smart TV a tabela precisa caber inteira no cartão: diminui a letra até caber */
 function ajustarTabOcup(){const tb=$("#tbOcup");if(!tb)return;const box=tb.parentElement;tb.style.fontSize="";
   if(!document.body.classList.contains("tv")||!box.clientHeight)return;
-  let f=Math.min(16,Math.max(9,innerHeight*.0125));tb.style.fontSize=f+"px";
-  while(f>7&&(box.scrollHeight>box.clientHeight+1||box.scrollWidth>box.clientWidth+1)){f-=.5;tb.style.fontSize=f+"px"}}
+  const cabe=f=>{tb.style.fontSize=f+"px";return box.scrollHeight<=box.clientHeight+1&&box.scrollWidth<=box.clientWidth+1};
+  let lo=7,hi=40;if(!cabe(lo)){return}
+  while(hi-lo>.25){const m=(lo+hi)/2;if(cabe(m))lo=m;else hi=m}
+  tb.style.fontSize=Math.floor(lo*.95*4)/4+"px";ajustarTabOcup.w=box.clientWidth;ajustarTabOcup.h=box.clientHeight}
 addEventListener("resize",()=>{clearTimeout(ajustarTabOcup.t);ajustarTabOcup.t=setTimeout(ajustarTabOcup,200)});
+/* reajusta quando o cartão muda de tamanho (ex.: ligar o modo TV ou a tela cheia) */
+if(window.ResizeObserver){new ResizeObserver(()=>{const b=$("#tbOcup")&&$("#tbOcup").parentElement;if(!b||(b.clientWidth===ajustarTabOcup.w&&b.clientHeight===ajustarTabOcup.h))return;clearTimeout(ajustarTabOcup.t);ajustarTabOcup.t=setTimeout(ajustarTabOcup,150)}).observe(document.body)}
 function renderEmprego(){
   renderChipsEmp();const R=state.resumo,a=curAgg(),z=a&&a.trab?a:aggregate([]);$("#empAviso").hidden=!(a&&a.total&&!a.trab);
   const N=x=>Math.round(x).toLocaleString("pt-BR"),P=x=>Math.round(x)+"%",PD=x=>(Math.round(x*10)/10).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
