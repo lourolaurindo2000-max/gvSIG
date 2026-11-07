@@ -932,7 +932,7 @@ function renderPessoas(){
   else tb.innerHTML=list.map(r=>{const a=age(r.nasc);return `<tr><td><div class="name-cell"><b>${esc(r.nome)}</b>${r.exemplo?' <span class="pill ex">exemplo</span>':""}${can("editar")?`<button class="ico-btn" type="button" data-act="nome" data-id="${r.id}" title="Corrigir nome" aria-label="Corrigir nome de ${esc(r.nome)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg></button>`:""}</div></td><td class="mono">${hasDoc(r,"cpf")===false?'<span class="pill">Não possui</span>':(esc(r.cpf)||"—")}</td><td>${a==null?"—":a}</td><td>${esc(r.bairro)}</td><td>${esc(r.esc)}</td><td>${r.rendaFam!==""&&r.rendaFam!=null?fmtBRL(percap(r)):"—"}</td><td>${r.bf==="sim"?'<span class="pill bf">Bolsa Família</span>':'<span class="pill">Não</span>'}</td>
     <td><div class="acts"><button class="btn sm" data-act="ver" data-id="${r.id}">Ver</button>${can("editar")?`<button class="btn sm" data-act="edit" data-id="${r.id}">Editar</button>`:""}${can("excluir")?`<button class="btn sm danger" data-act="del" data-id="${r.id}">Excluir</button>`:""}</div></td></tr>`}).join("");
   const ex=state.records.filter(r=>r.exemplo).length;
-  $("#examplesBox").innerHTML=!can("exemplos")?"":state.records.length===0?`<button class="btn" id="btnEx" type="button">Carregar 40 cadastros de exemplo para testar</button>`:ex?`<button class="btn danger" id="btnRmEx" type="button">Remover os ${ex} cadastros de exemplo</button>`:"";
+  $("#examplesBox").innerHTML=!can("exemplos")?"":state.records.length===0?`<button class="btn" id="btnEx" type="button">Carregar 500 cadastros de exemplo para testar</button>`:ex?`<button class="btn danger" id="btnRmEx" type="button">Remover os ${ex} cadastros de exemplo</button>`:"";
   const be=$("#btnEx");if(be)be.onclick=loadExamples;const br=$("#btnRmEx");if(br)br.onclick=()=>confirmBox("Remover exemplos?",`Os ${ex} cadastros marcados como exemplo serão apagados. Os cadastros reais continuam.`,"Remover",removeExamples);
 }
 
@@ -1306,14 +1306,14 @@ async function loadExamples(){
   const sob=["Santos","Silva","Oliveira","Souza","Conceição","Jesus","Pereira","Nascimento","Almeida","Rocha","Bomfim","Cruz"];
   const prof={Centro:[.25,.35,.85],Massaranduba:[.7,.65,.4],Liberdade:[.8,.75,.3],"Bairro da Horta":[.75,.7,.35]};
   const pick=a=>a[Math.floor(Math.random()*a.length)];const btn=$("#btnEx");if(btn){btn.disabled=true;btn.textContent="Gravando exemplos…"}
-  const recs=[];for(let i=0;i<40;i++){const b=BAIRROS[i%BAIRROS.length];const [pbf,psem,pinf]=prof[b]||[.6,.5,.5];const fem=Math.random()<.55;
+  const recs=[];for(let i=0;i<500;i++){const b=BAIRROS[i%BAIRROS.length];const [pbf,psem,pinf]=prof[b]||[.6,.5,.5];const fem=Math.random()<.55;
     const ag=Math.floor(Math.random()*80);const bd=new Date(Date.now()-(ag*365.25+15+Math.random()*340)*864e5);const mor=1+Math.floor(Math.random()*6);
     const bf=Math.random()<pbf;const semEsc=ag>6&&Math.random()<psem*.55;const e=ag<6?ESC[0]:semEsc?ESC[0]:pick(Math.random()<pinf?ESC.slice(2):ESC.slice(1,3));
     const rf=bf?Math.round(300+Math.random()*700):Math.round(800+Math.random()*2600*pinf);
     const inf=[];if(Math.random()<.5+pinf/2)inf.push("agua");if(Math.random()<pinf)inf.push("esgoto");if(Math.random()<.95)inf.push("energia");if(Math.random()<.4+pinf/2)inf.push("lixo");if(Math.random()<pinf)inf.push("calcamento");
     const m=new Date();m.setMonth(m.getMonth()-Math.floor(Math.random()*6));
     recs.push({exemplo:true,nome:`${fem?pick(nomesF):pick(nomesM)} ${pick(sob)} ${pick(sob)} (exemplo)`,nasc:bd.toISOString().slice(0,10),sexo:fem?"Feminino":"Masculino",cor:pick(["Parda","Preta","Parda","Branca"]),bairro:b,esc:e,ler:e===ESC[0]&&ag>6?pick(["Não","Só assina o nome"]):"Sim",bf:bf?"sim":"nao",bfValor:bf?600:"",rendaFam:rf,rendaInd:"",moradores:mor,ben:Math.random()<.2?["Auxílio Gás"]:[],inf,saude:[],ocup:ag<15?"Não se aplica (criança)":pick(["Trabalho informal / bico","Trabalhador(a) rural","Desempregado(a)","Do lar"]),temdoc:Object.keys(DOCS).filter(k=>Math.random()>(k==="titulo"&&ag<16?1:k==="ctps"?(ag<16?1:.55):(1-pinf)*.35)),cep:"45640-000",cpf:"",nis:"",criadoEm:m.toISOString(),atualizadoEm:m.toISOString(),agente:"Exemplo"})}
-  try{for(const r of recs)await saveRec(null,r);toast("40 cadastros de exemplo gravados");logAudit("cadastro","Carregou cadastros de exemplo","","40 cadastros")}catch(e){toast(errMsg(e))}}
+  try{let n=0;for(const r of recs){await saveRec(null,r);n++;if(btn&&n%10===0)btn.textContent=`Gravando exemplos… ${n} de ${recs.length}`}toast(recs.length+" cadastros de exemplo gravados");logAudit("cadastro","Carregou cadastros de exemplo","",recs.length+" cadastros")}catch(e){toast(errMsg(e))}}
 async function removeExamples(){try{for(const r of state.records.filter(x=>x.exemplo))await delRec(r.id);toast("Exemplos removidos");logAudit("exclusao","Removeu cadastros de exemplo","","")}catch(e){toast(errMsg(e))}}
 
 /* tema: redesenha gráficos */
