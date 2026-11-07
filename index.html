@@ -719,14 +719,14 @@ function ivsNivel(v){return v==null?{c:"",t:"sem dados"}:v>=55?{c:"v-alta",t:"al
 
 /* ---------- População total (menu) ---------- */
 let popLast=null,popAnim=0;
-function popAnimate(el,from,to){cancelAnimationFrame(popAnim);if(from==null||from===to||matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=to.toLocaleString("pt-BR");return}
+function popAnimate(el,from,to){return animarNum(el,to,x=>Math.round(x).toLocaleString("pt-BR"));cancelAnimationFrame(popAnim);if(from==null||from===to||matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=to.toLocaleString("pt-BR");return}
   const t0=performance.now(),d=700;const step=t=>{const k=Math.min(1,(t-t0)/d),e=1-Math.pow(1-k,3);el.textContent=Math.round(from+(to-from)*e).toLocaleString("pt-BR");if(k<1)popAnim=requestAnimationFrame(step)};popAnim=requestAnimationFrame(step)}
 function updatePop(){
   const R=state.resumo,num=$("#popNum"),btn=$("#popBtn");if(!num)return;
   if(!R||!R.todos){num.textContent="…";btn.setAttribute("aria-label","População cadastrada: carregando");if(!$("#popPanel").hidden)renderPopPanel();return}
   const tot=R.todos.total||0;
   if(popLast!=null&&popLast!==tot){btn.classList.remove("bump");void btn.offsetWidth;btn.classList.add("bump");
-    if(document.documentElement.classList.contains("tv-device")){const d=tot-popLast;toast(d>0?`+${d.toLocaleString("pt-BR")} ${d===1?"novo cadastro":"novos cadastros"} · total ${tot.toLocaleString("pt-BR")} pessoas`:`Painel atualizado · total ${tot.toLocaleString("pt-BR")} pessoas`)}}
+    if(document.documentElement.classList.contains("tv-device")){const d=tot-popLast;toast(d>0?`+${d.toLocaleString("pt-BR")} ${d===1?"novo cadastro":"novos cadastros"}`:"Painel atualizado")}}
   popAnimate(num,popLast,tot);popLast=tot;
   btn.setAttribute("aria-label",`População cadastrada em Almadina: ${tot.toLocaleString("pt-BR")} pessoas. Ver por bairro`);
   if(!$("#popPanel").hidden)renderPopPanel();
@@ -760,16 +760,28 @@ function renderChips(){
   ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderPainel();sendTela()};box.appendChild(c)});
 }
 function renderKpis(a){
-  const t=a?a.total:0;
+  const t=a?a.total:0,N=x=>Math.round(x).toLocaleString("pt-BR"),P=x=>Math.round(x)+"%";
   const k=[
-    {l:"Pessoas cadastradas",v:t.toLocaleString("pt-BR"),s:a?`${a.familias} famílias`:"—",hl:1},
-    {l:"No Bolsa Família",v:pct(a?a.bf:0,t)+"%",s:a?`${a.bf} pessoas`:"—"},
-    {l:"Sem escolaridade",v:pct(a?a.semEsc:0,t)+"%",s:a?`${a.analf} não sabem ler`:"—"},
-    {l:"Renda per capita média",v:fmtBRL(a?a.renda_media:0),s:"por mês"},
-    {l:"Crianças e idosos",v:a?(a.criancas+a.idosos):0,s:a?`${a.criancas} até 14 · ${a.idosos} com 60+`:"—"}
+    {l:"Pessoas cadastradas",n:t,f:N,s:a?`${N(a.familias)} famílias`:"—",hl:1},
+    {l:"No Bolsa Família",n:pct(a?a.bf:0,t),f:P,s:a?`${N(a.bf)} pessoas`:"—"},
+    {l:"Sem escolaridade",n:pct(a?a.semEsc:0,t),f:P,s:a?`${N(a.analf)} não sabem ler`:"—"},
+    {l:"Renda per capita média",n:a?a.renda_media:0,f:fmtBRL,p:.01,s:"por mês"},
+    {l:"Crianças e idosos",n:a?(a.criancas+a.idosos):0,f:N,s:a?`${N(a.criancas)} até 14 · ${N(a.idosos)} com 60+`:"—"}
   ];
-  $("#kpis").innerHTML=k.map(x=>`<div class="kpi${x.hl?" hl":""}"><div class="lab">${x.l}</div><div class="val">${x.v}</div><div class="sub">${x.s}</div></div>`).join("");
+  const box=$("#kpis");
+  if(box.children.length!==k.length)box.innerHTML=k.map(x=>`<div class="kpi${x.hl?" hl":""}"><div class="lab">${x.l}</div><div class="val"></div><div class="sub"></div></div>`).join("");
+  k.forEach((x,i)=>{const c=box.children[i];c.querySelector(".sub").textContent=x.s;animarNum(c.querySelector(".val"),x.n,x.f,x.p)});
 }
+/* anima um número do valor anterior até o novo (mais lento na Smart TV, para acompanhar a atualização) */
+const animLenta=()=>document.documentElement.classList.contains("tv-device")||document.body.classList.contains("tv");
+function animarNum(el,to,f,passo){el._f=f;
+  if(!isFinite(to)||el._cur==null||!isFinite(el._cur)||matchMedia("(prefers-reduced-motion: reduce)").matches){cancelAnimationFrame(el._raf);el._raf=0;el._cur=to;el._v=to;el.textContent=f(to);return}
+  el._v=to;if(el._raf)return;const pm=passo||1;
+  const step=()=>{const d=el._v-el._cur,q=animLenta()?55:25;
+    if(Math.abs(d)<pm){el._cur=el._v;el.textContent=el._f(el._cur);el._raf=0;return}
+    el._cur+=Math.sign(d)*Math.max(pm,Math.abs(d)/q);if((d>0&&el._cur>el._v)||(d<0&&el._cur<el._v))el._cur=el._v;
+    el.textContent=el._f(el._cur);el._raf=requestAnimationFrame(step)};
+  el._raf=requestAnimationFrame(step)}
 const METRICS={
   bf:{l:"Bolsa Família",d:"pessoas no Bolsa Família",v:a=>a.total?a.bf/a.total:null},
   semEsc:{l:"Sem escolaridade",d:"pessoas sem escolaridade",v:a=>a.total?a.semEsc/a.total:null},
@@ -866,8 +878,12 @@ function renderSide(){
   $$("#mapSide .lg-item").forEach(btn=>btn.onclick=()=>{state.filter=state.filter===btn.dataset.b?"":btn.dataset.b;state.mapHover=null;renderPainel();sendTela()});
   const sa=$("#sideAll");if(sa)sa.onclick=()=>{state.filter="";state.mapHover=null;renderPainel();sendTela()};
 }
-function mkChart(id,cfg){if(typeof Chart==="undefined")return;if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg)}
-function baseOpts(extra){const fg=css("--muted"),grid=css("--line");return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:400},
+function mkChart(id,cfg){if(typeof Chart==="undefined")return;const el=document.getElementById(id),ch=charts[id];
+  if(ch&&ch.canvas===el&&ch.config.type===cfg.type){try{ch.data.labels=cfg.data.labels;const ds=cfg.data.datasets;
+      ds.forEach((d,i)=>{if(ch.data.datasets[i])Object.assign(ch.data.datasets[i],d);else ch.data.datasets.push(d)});ch.data.datasets.length=ds.length;
+      ch.options=cfg.options;ch.update();return}catch(e){console.warn(e)}}
+  if(ch)ch.destroy();charts[id]=new Chart(el,cfg)}
+function baseOpts(extra){const fg=css("--muted"),grid=css("--line");return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:animLenta()?1100:500,easing:"easeOutCubic"},
   plugins:{legend:{labels:{color:fg,boxWidth:12,font:{family:FB}}},tooltip:{titleFont:{family:FB},bodyFont:{family:FB}}},
   scales:{x:{ticks:{color:fg,font:{family:FB}},grid:{color:grid}},y:{ticks:{color:fg,precision:0,font:{family:FB}},grid:{color:grid},beginAtZero:true}}},extra||{})}
 function renderCharts(a){
@@ -1356,7 +1372,7 @@ async function loadExamples(){
   state.cargaMassa=true;if(state.db&&state.db.pausar)state.db.pausar("pessoas",true);prog(0);
   try{
     if(state.db===null){recs.forEach((r,i)=>state.records.push(Object.assign({},r,{id:ids[i]})));persistLocal();n=recs.length}
-    else if(state.db.salvarVarios){for(let i=0;i<recs.length;i+=500){const lote=recs.slice(i,i+500).map((r,k)=>({id:ids[i+k],dados:r}));
+    else if(state.db.salvarVarios){const LOTE=150;for(let i=0;i<recs.length;i+=LOTE){if(i)await new Promise(r=>setTimeout(r,450));const lote=recs.slice(i,i+LOTE).map((r,k)=>({id:ids[i+k],dados:r}));
         await comRetry(()=>state.db.salvarVarios("pessoas",lote));for(const x of lote)state.records.push(Object.assign({},x.dados,{id:x.id}));n+=lote.length;prog(n);onRecords()}}
     else await emParalelo(recs,3,async(r,k)=>{await comRetry(()=>state.db.collection("pessoas").doc(ids[k]).set(r));n++;if(n%25===0||n===recs.length)prog(n)});
     toast(nf(n)+" cadastros de exemplo gravados");logAudit("cadastro","Carregou cadastros de exemplo","",nf(n)+" cadastros")}
@@ -1553,7 +1569,7 @@ function criarBancoSupabase(sb){
       update:async v=>{const s=await ler();if(!s.exists){const x=new Error("não existe");x.code="not-found";throw x}const novo=Object.assign(s.data(),v);
         const linha=cfg?{chave,dados:novo}:tabela==="pessoas"?linhaPessoa(id,novo):{id,dados:novo};const {error}=await sb.from(tabela).upsert(linha);if(error)throw erro(error);avisar(tabela)},
       delete:async()=>{const {error}=cfg?await sb.from(tabela).delete().eq("chave",chave):await sb.from(tabela).delete().eq("id",id);if(error)throw erro(error);avisar(tabela)},
-      onSnapshot:(next,onErr)=>{let vivo=true;const carregar=()=>ler().then(s=>{if(vivo)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr&&e.code==="permission-denied")onErr(e)});
+      onSnapshot:(next,onErr)=>{let vivo=true,seq=0;const carregar=()=>{const n=++seq;return ler().then(s=>{if(vivo&&n===seq)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr&&e.code==="permission-denied")onErr(e)})};
         carregar();const parar=ouvir(tabela,carregar);return()=>{vivo=false;parar()}}}}
   function colRef(col,ordem,limite){
     const tabela=TAB[col];if(!tabela)throw new Error("Coleção desconhecida: "+col);
@@ -1568,7 +1584,7 @@ function criarBancoSupabase(sb){
       orderBy:(f,d)=>colRef(col,[f,d||"asc"],limite),
       limit:n=>colRef(col,ordem,n),
       get:listar,
-      onSnapshot:(next,onErr)=>{let vivo=true;const carregar=()=>listar().then(s=>{if(vivo)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr)onErr(e)});
+      onSnapshot:(next,onErr)=>{let vivo=true,seq=0;const carregar=()=>{const n=++seq;return listar().then(s=>{if(vivo&&n===seq)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr)onErr(e)})};
         carregar();const parar=ouvir(tabela,carregar);return()=>{vivo=false;parar()}}}}
   return {doc:p=>{const i=p.indexOf("/");return docRef(p.slice(0,i),p.slice(i+1))},collection:c=>colRef(c),
     // gravação em lote: uma requisição para até 500 pessoas
