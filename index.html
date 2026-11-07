@@ -1340,7 +1340,9 @@ async function loadExamples(){
     if(c>0){toast(`Já existem ${c.toLocaleString("pt-BR")} cadastros no banco. Remova-os antes de carregar exemplos.`);state.db.recarregar&&state.db.recarregar("pessoas");return}}
   const nomesF=["Maria","Ana","Josefa","Antônia","Francisca","Rita","Joana","Luzia","Cleide","Edna","Jaqueline","Valdirene"],nomesM=["José","João","Antônio","Francisco","Raimundo","Manoel","Carlos","Edivaldo","Gilmar","Reinaldo","Luiz","Pedro"];
   const sob=["Santos","Silva","Oliveira","Souza","Conceição","Jesus","Pereira","Nascimento","Almeida","Rocha","Bomfim","Cruz"];
-  const prof={Centro:[.25,.35,.85],Massaranduba:[.7,.65,.4],Liberdade:[.8,.75,.3],"Bairro da Horta":[.75,.7,.35]};
+  /* perfil social de cada bairro nos exemplos [Bolsa Família, sem escolaridade, infraestrutura/renda]:
+     IVS calculado: Centro baixa · Massaranduba média · Liberdade e Bairro da Horta baixíssima · Pancadinha baixa · Zona Rural média */
+  const prof={Centro:[.25,.35,.85],Massaranduba:[.6,.55,.5],Liberdade:[.03,.05,1],"Bairro da Horta":[.03,.05,1],Pancadinha:[.25,.3,.85],"Zona Rural":[.6,.55,.45]};
   const pick=a=>a[Math.floor(Math.random()*a.length)];const btn=$("#btnEx");if(btn){btn.disabled=true;btn.textContent="Preparando exemplos…"}
   const recs=[];for(let i=0;i<EX_TOTAL;i++){const b=BAIRROS[i%BAIRROS.length];const [pbf,psem,pinf]=prof[b]||[.6,.5,.5];const fem=Math.random()<.55;
     const ag=Math.floor(Math.random()*80);const bd=new Date(Date.now()-(ag*365.25+15+Math.random()*340)*864e5);const mor=1+Math.floor(Math.random()*6);
