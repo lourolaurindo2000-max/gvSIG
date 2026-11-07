@@ -313,6 +313,34 @@ footer .wrap{align-items:flex-start;text-align:left}
 }
 @media (max-width:440px){.fields{grid-template-columns:1fr}.f.w2{grid-column:1/-1}.kpi .val{font-size:24px}.meter{grid-template-columns:90px minmax(0,1fr) 40px}}
 
+/* ===== População total no menu ===== */
+.pop{position:relative;flex:none}
+.pop-btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:var(--brand-ink);height:36px;border-radius:8px;padding:0 12px;display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13px;white-space:nowrap}
+.pop-btn:hover,.pop-btn[aria-expanded="true"]{background:rgba(255,255,255,.2)}
+.pop-btn b{font-family:var(--f-display);font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1}
+.pop-btn.bump b{animation:popBump .7s ease}
+@keyframes popBump{0%{transform:scale(1)}30%{transform:scale(1.35)}100%{transform:scale(1)}}
+.pop-panel{position:absolute;right:0;top:calc(100% + 8px);width:320px;max-width:calc(100vw - 32px);background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.25);padding:16px;z-index:30;font-size:13px}
+.pop-panel .pp-tot{font-family:var(--f-display);font-size:34px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+.pop-panel .pp-sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+.pp-list{display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line);padding-top:12px}
+.pp-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;gap:4px 8px;align-items:center}
+.pp-row i.sw2{width:10px;height:10px;border-radius:3px;display:block}
+.pp-row .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-row .ct{font-variant-numeric:tabular-nums;font-weight:700}
+.pp-row .pc{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;min-width:36px;text-align:right}
+.pp-row .bar{grid-column:2/-1;height:5px}
+.pp-sum{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-weight:700}
+.pp-ivs{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:8px}
+.pp-note{font-size:11px;color:var(--muted);margin:10px 0 0}
+.ivs-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+.ivs-pill.v-alta{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.ivs-pill.v-media{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.ivs-pill.v-baixa{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+@media (max-width:760px){.top .brand{flex:1 1 100%}.pop{position:static}.pop-panel{left:16px;right:16px;width:auto;max-width:none}}
+body.tv .pop-btn{height:clamp(30px,4vh,44px);font-size:clamp(12px,1.4vh,17px)}
+body.tv .pop-btn b{font-size:clamp(16px,2.4vh,28px)}
+
 /* ===== Modo TV: tudo em uma tela, sem rolagem ===== */
 #tvBtn{width:auto;padding:0 10px;gap:6px;font-weight:700;font-size:13px}
 #tvBtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1b120a}
@@ -339,6 +367,7 @@ body.tv .kpi .val{font-size:clamp(20px,3.6vh,48px)}
 body.tv #v-painel .grid{flex:1;min-height:0;gap:clamp(6px,.6vw,12px);grid-template-columns:1.55fr repeat(4,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
 body.tv #v-painel .grid>.card{grid-column:auto;min-height:0;display:flex;flex-direction:column;padding:clamp(8px,1vh,14px);overflow:hidden}
 body.tv #v-painel .grid>.map-card{grid-column:1;grid-row:1/3;padding:0}
+body.tv #v-painel .grid>.tv-off{display:none}
 body.tv .card h3{font-size:clamp(12px,1.5vh,19px)}
 body.tv .card .cap{font-size:clamp(10px,1.15vh,14px);margin-bottom:clamp(2px,.6vh,8px)}
 body.tv .chart,body.tv .chart.tall{flex:1 1 auto;height:auto;min-height:0}
@@ -401,6 +430,10 @@ html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf]{dis
       <button class="tab" data-perm="usuarios" data-view="usuarios" hidden>Usuários</button>
       <button class="tab" data-perm="auditoria" data-view="auditoria" hidden>Auditoria</button>
     </nav>
+    <div class="pop" id="popBox">
+      <button class="pop-btn" id="popBtn" type="button" aria-expanded="false" aria-controls="popPanel" title="População cadastrada em todo o município"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.3c2.2.7 3.5 2.8 3.5 5.7"/></svg><b id="popNum">…</b><span class="pp-lbl">pessoas</span></button>
+      <div class="pop-panel" id="popPanel" hidden></div>
+    </div>
     <button class="theme-btn" id="tvBtn" type="button" aria-pressed="false" aria-label="Ativar o modo TV (tela cheia, sem rolagem)" title="Modo TV: tudo em uma tela"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 17.5V21"/></svg><span class="tv-lbl">TV</span></button>
     <button class="theme-btn" id="themeBtn" type="button" aria-label="Mudar para o modo escuro" title="Modo claro / escuro"></button>
     <button class="theme-btn exit-btn" id="logoutBtn" type="button" data-perm="ver" hidden title="Sair do modo administrativo" aria-label="Sair do modo administrativo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg><span>Sair</span></button>
@@ -439,8 +472,9 @@ html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf]{dis
         <div class="card s4 tv-c tv-x"><h3>Documentação</h3><p class="cap">% das pessoas que não possuem cada documento</p><div class="chart"><canvas id="chDoc"></canvas></div></div>
         <div class="card s4 tv-c tv-x"><h3>Renda per capita</h3><p class="cap">Renda familiar dividida pelos moradores</p><div class="chart"><canvas id="chRenda"></canvas></div></div>
         <div class="card s4 tv-c"><h3>Saneamento e serviços</h3><p class="cap">% das pessoas com acesso</p><div class="chart"><canvas id="chInfra"></canvas></div></div>
+        <div class="card s4 tv-c tv-x"><h3>IVS por bairro</h3><p class="cap">Índice de Vulnerabilidade Social (0 a 100) · quanto maior, mais vulnerável</p><div class="chart"><canvas id="chIvs"></canvas></div></div>
         <div class="card s4 tv-c tv-x"><h3>Benefícios sociais</h3><p class="cap">Pessoas atendidas por programa</p><div class="chart"><canvas id="chBen"></canvas></div></div>
-        <div class="card s8 tv-c tv-x"><h3>Evolução dos cadastros</h3><p class="cap">Cadastros acumulados por mês</p><div class="chart"><canvas id="chMes"></canvas></div></div>
+        <div class="card s4 tv-c tv-x tv-off"><h3>Evolução dos cadastros</h3><p class="cap">Cadastros acumulados por mês</p><div class="chart"><canvas id="chMes"></canvas></div></div>
       </div>
     </section>
 
@@ -679,6 +713,42 @@ function aggregate(list){
 function buildResumo(list){const r={atualizado:new Date().toISOString(),todos:aggregate(list),bairros:{}};for(const b of BAIRROS)r.bairros[b]=aggregate(list.filter(x=>x.bairro===b));return r}
 function vuln(a){if(!a.total)return null;const s=(a.bf/a.total)*30+(a.semEsc/a.total+a.analf/a.total)/2*25+((a.renda[0]+a.renda[4])/a.total)*25+(1-((a.inf.agua+a.inf.esgoto+a.inf.lixo)/(3*a.total)))*20;return Math.round(s)}
 
+function ivsNivel(v){return v==null?{c:"",t:"sem dados"}:v>=55?{c:"v-alta",t:"alta"}:v>=35?{c:"v-media",t:"média"}:{c:"v-baixa",t:"baixa"}}
+
+/* ---------- População total (menu) ---------- */
+let popLast=null,popAnim=0;
+function popAnimate(el,from,to){cancelAnimationFrame(popAnim);if(from==null||from===to||matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=to.toLocaleString("pt-BR");return}
+  const t0=performance.now(),d=700;const step=t=>{const k=Math.min(1,(t-t0)/d),e=1-Math.pow(1-k,3);el.textContent=Math.round(from+(to-from)*e).toLocaleString("pt-BR");if(k<1)popAnim=requestAnimationFrame(step)};popAnim=requestAnimationFrame(step)}
+function updatePop(){
+  const R=state.resumo,num=$("#popNum"),btn=$("#popBtn");if(!num)return;
+  if(!R||!R.todos){num.textContent="…";btn.setAttribute("aria-label","População cadastrada: carregando");if(!$("#popPanel").hidden)renderPopPanel();return}
+  const tot=R.todos.total||0;
+  if(popLast!=null&&popLast!==tot){btn.classList.remove("bump");void btn.offsetWidth;btn.classList.add("bump")}
+  popAnimate(num,popLast,tot);popLast=tot;
+  btn.setAttribute("aria-label",`População cadastrada em Almadina: ${tot.toLocaleString("pt-BR")} pessoas. Ver por bairro`);
+  if(!$("#popPanel").hidden)renderPopPanel();
+}
+function renderPopPanel(){
+  const R=state.resumo,P=$("#popPanel");
+  if(!R||!R.todos){P.innerHTML=`<div class="pp-sub">Carregando os dados…</div>`;return}
+  const T=R.todos,tot=T.total||0,n=x=>Number(x||0).toLocaleString("pt-BR");
+  const rows=BAIRROS.map(b=>({b,a:R.bairros[b]||aggregate([])})).sort((x,y)=>y.a.total-x.a.total);
+  const soma=rows.reduce((s,r)=>s+r.a.total,0),fora=Math.max(0,tot-soma);
+  const mes=new Date().toISOString().slice(0,7),noMes=(T.meses&&T.meses[mes])||0;
+  const iv=vuln(T),nv=ivsNivel(iv);
+  P.innerHTML=`<div class="eyebrow">População cadastrada · Almadina</div>
+    <div class="pp-tot">${n(tot)}</div>
+    <div class="pp-sub">${n(T.familias)} famílias${noMes?` · <b style="color:var(--ok)">+${n(noMes)}</b> este mês`:""}</div>
+    <div class="pp-list">${rows.map(({b,a})=>`<div class="pp-row"><i class="sw2" style="background:${BCOLOR[b]||"var(--c1)"}"></i><span class="nm">${esc(b)}</span><span class="ct">${n(a.total)}</span><span class="pc">${pct(a.total,tot)}%</span><span class="bar"><i style="width:${pct(a.total,tot)}%;background:${BCOLOR[b]||"var(--c1)"}"></i></span></div>`).join("")}
+    ${fora?`<div class="pp-row"><i class="sw2" style="background:var(--muted)"></i><span class="nm">Sem bairro definido</span><span class="ct">${n(fora)}</span><span class="pc">${pct(fora,tot)}%</span><span class="bar"><i style="width:${pct(fora,tot)}%;background:var(--muted)"></i></span></div>`:""}</div>
+    <div class="pp-sum"><span>Total do município</span><span>${n(tot)}</span></div>
+    <div class="pp-ivs"><span>IVS do município</span>${iv==null?`<span class="muted-s">sem dados</span>`:`<span class="ivs-pill ${nv.c}">${iv} · ${nv.t}</span>`}</div>
+    <p class="pp-note">Soma automática de ${BAIRROS.length} bairros${fora?" + pessoas sem bairro":""}. Atualiza sozinha a cada cadastro, edição ou exclusão.</p>`;
+}
+$("#popBtn").addEventListener("click",e=>{e.stopPropagation();const P=$("#popPanel"),open=P.hidden;P.hidden=!open;$("#popBtn").setAttribute("aria-expanded",String(open));if(open)renderPopPanel()});
+document.addEventListener("click",e=>{if(!e.target.closest("#popBox")){$("#popPanel").hidden=true;$("#popBtn").setAttribute("aria-expanded","false")}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#popPanel").hidden){$("#popPanel").hidden=true;$("#popBtn").setAttribute("aria-expanded","false");$("#popBtn").focus()}});
+
 /* ---------- render: Painel ---------- */
 let charts={};
 function curAgg(){if(!state.resumo)return null;return state.filter?state.resumo.bairros[state.filter]:state.resumo.todos}
@@ -702,6 +772,7 @@ const METRICS={
   semEsc:{l:"Sem escolaridade",d:"pessoas sem escolaridade",v:a=>a.total?a.semEsc/a.total:null},
   renda:{l:"Extrema pobreza",d:"renda per capita até R$ 218,00",v:a=>a.total?a.renda[0]/a.total:null},
   esgoto:{l:"Sem esgoto",d:"pessoas sem rede de esgoto",v:a=>a.total?1-a.inf.esgoto/a.total:null},
+  ivs:{l:"IVS",d:"Índice de Vulnerabilidade Social",ivs:true,v:a=>{const x=vuln(a);return x==null?null:x/100}},
   pessoas:{l:"Pessoas",d:"pessoas cadastradas",count:true,v:(a,max)=>max?a.total/max:null}};
 state.mapMetric="bf";state.mapHover=null;
 const BCOLOR={"Centro":"var(--b1)","Massaranduba":"var(--b2)","Liberdade":"var(--b3)","Bairro da Horta":"var(--b4)"};
@@ -714,7 +785,7 @@ const PINS={"Massaranduba":[232,170],"Liberdade":[566,148],"Centro":[424,214],"B
 const WATER={"Massaranduba":[245,240],"Liberdade":[585,212],"Centro":[425,272],"Bairro da Horta":[485,425]};
 const pctTxt=v=>v==null?"—":Math.round(v*100)+"%";
 function metricVal(m,a,max){return a&&a.total?m.v(a,max):null}
-function metricTxt(m,a){if(!a||!a.total)return "sem cadastros";return m.count?a.total+" pessoas":pctTxt(m.v(a))}
+function metricTxt(m,a){if(!a||!a.total)return "sem cadastros";if(m.ivs){const x=vuln(a);return "IVS "+x+" · "+ivsNivel(x).t}return m.count?a.total+" pessoas":pctTxt(m.v(a))}
 const pinSvg=(c,w)=>`<svg width="${w}" height="${Math.round(w*1.3)}" viewBox="0 0 20 26" aria-hidden="true"><path d="M10 25.5C10 25.5 1 15.6 1 9.6A9 9 0 0 1 19 9.6C19 15.6 10 25.5 10 25.5Z" style="fill:${c};stroke:var(--surface);stroke-width:1.5"/><circle cx="10" cy="9.5" r="3.4" style="fill:var(--surface)"/></svg>`;
 let streetCache="";
 function streets(){
@@ -786,8 +857,8 @@ function renderSide(){
   const R=state.resumo,m=METRICS[state.mapMetric],side=$("#mapSide"),cur=state.mapHover||state.filter;
   const max=Math.max(0,...BAIRROS.map(x=>R&&R.bairros[x]?R.bairros[x].total:0));
   let h=`<div class="lg">${BAIRROS.map(b=>{const a=R&&R.bairros[b];const v=metricVal(m,a,max);const c=BCOLOR[b];
-    return `<button type="button" class="lg-item" data-b="${b}" aria-pressed="${state.filter===b}"${cur===b?' data-cur="1"':""}>${pinSvg(c,16)}<span class="lg-name">${b}</span><span class="lg-val">${!a||!a.total?"—":m.count?a.total:metricTxt(m,a)}</span><span class="bar"><i style="width:${v==null?0:Math.round(v*100)}%;background:${c}"></i></span></button>`}).join("")}</div>`;
-  h+=state.filter?`<button class="btn sm" type="button" id="sideAll">Mostrar todo o município</button>`:`<p class="side-note">${m.count?"Pessoas cadastradas por bairro.":"Percentual de "+m.d+"."} Toque num bairro para filtrar o painel.</p>`;
+    return `<button type="button" class="lg-item" data-b="${b}" aria-pressed="${state.filter===b}"${cur===b?' data-cur="1"':""}>${pinSvg(c,16)}<span class="lg-name">${b}</span><span class="lg-val">${!a||!a.total?"—":m.count?a.total:m.ivs?vuln(a):metricTxt(m,a)}</span><span class="bar"><i style="width:${v==null?0:Math.round(v*100)}%;background:${c}"></i></span></button>`}).join("")}</div>`;
+  h+=state.filter?`<button class="btn sm" type="button" id="sideAll">Mostrar todo o município</button>`:`<p class="side-note">${m.count?"Pessoas cadastradas por bairro.":m.ivs?"IVS de 0 a 100: abaixo de 35 baixo, 35 a 54 médio, 55 ou mais alto.":"Percentual de "+m.d+"."} Toque num bairro para filtrar o painel.</p>`;
   side.innerHTML=h;
   $$("#mapSide .lg-item").forEach(btn=>btn.onclick=()=>{state.filter=state.filter===btn.dataset.b?"":btn.dataset.b;state.mapHover=null;renderPainel();sendTela()});
   const sa=$("#sideAll");if(sa)sa.onclick=()=>{state.filter="";state.mapHover=null;renderPainel();sendTela()};
@@ -819,6 +890,14 @@ function renderCharts(a){
   const dk=Object.keys(DOCS),sd=z.semDoc||{},dn=z.docN||0;
   mkChart("chDoc",{type:"bar",data:{labels:dk.map(k=>DOCS[k].l),datasets:[{label:"% sem o documento",data:dk.map(k=>dn?Math.round((sd[k]||0)/dn*100):0),backgroundColor:dk.map(k=>k==="cpf"||k==="certidao"?C[4]:C[1]),borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}% não possuem (${sd[dk[c.dataIndex]]||0} de ${dn})`}}},scales:{x:{min:0,max:100,ticks:{color:css("--muted"),callback:v=>v+"%"},grid:{color:css("--line")}},y:{ticks:{color:css("--muted")},grid:{display:false}}}})});
+  {const OK=css("--ok"),WN=css("--warn"),BD=css("--bad"),cor=v=>v==null?css("--line"):v>=55?BD:v>=35?WN:OK;
+   const lab=[...BAIRROS,"Município"],ag=[...BAIRROS.map(b=>R&&R.bairros[b]?R.bairros[b]:null),R?R.todos:null];
+   const vals=ag.map(x=>x?vuln(x):null),sel=state.filter;
+   mkChart("chIvs",{type:"bar",data:{labels:lab,datasets:[{label:"IVS",data:vals.map(v=>v==null?0:v),
+     backgroundColor:vals.map((v,i)=>{const c=cor(v);return sel&&lab[i]!==sel&&i<BAIRROS.length?c+"55":c}),
+     borderColor:vals.map((v,i)=>i===lab.length-1?css("--fg"):"transparent"),borderWidth:vals.map((v,i)=>i===lab.length-1?1.5:0),borderRadius:4}]},
+     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=vals[c.dataIndex];return v==null?"Sem cadastros":`IVS ${v} · vulnerabilidade ${ivsNivel(v).t}`}}}},
+       scales:{x:{min:0,max:100,ticks:{color:css("--muted"),stepSize:20},grid:{color:css("--line")}},y:{ticks:{color:css("--muted"),font:c=>({size:11,weight:c.index===lab.length-1?"bold":"normal"})},grid:{display:false}}}})})}
   const bk=Object.keys(z.ben);
   mkChart("chBen",{type:"bar",data:{labels:bk,datasets:[{label:"Pessoas",data:bk.map(k=>z.ben[k]),backgroundColor:C[1],borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{color:css("--muted"),precision:0},grid:{color:css("--line")}},y:{ticks:{color:css("--muted"),font:{size:11}},grid:{display:false}}}})});
@@ -1218,7 +1297,7 @@ function onRecords(){state.resumo=buildResumo(state.records);if(state.db&&state.
 function schedulePublish(){clearTimeout(pubTimer);pubTimer=setTimeout(async()=>{const r=buildResumo(state.records);const cmp=JSON.stringify(Object.assign({},r,{atualizado:0}));if(cmp===lastPub)return;try{await state.db.doc("publico/resumo").set(r);lastPub=cmp}catch(e){}},1500)}
 function refresh(){if(state.resumo){state.resumo.bairros=state.resumo.bairros||{};for(const b of BAIRROS)if(!state.resumo.bairros[b])state.resumo.bairros[b]=aggregate([])}
   if(state.view==="config")renderConfig();if(state.view==="painel")renderPainel();if(state.view==="bairros")renderBairros();if(state.view==="pessoas")renderPessoas();
-  const r=state.resumo;$("#updTxt").textContent=r&&r.atualizado?"Dados atualizados em "+new Date(r.atualizado).toLocaleString("pt-BR"):""}
+  updatePop();const r=state.resumo;$("#updTxt").textContent=r&&r.atualizado?"Dados atualizados em "+new Date(r.atualizado).toLocaleString("pt-BR"):""}
 function setStatus(kind,txt){$("#dot").className="dot"+(kind?" "+kind:"");$("#statusTxt").textContent=txt}
 
 /* exemplos */
