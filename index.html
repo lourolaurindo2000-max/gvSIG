@@ -395,6 +395,10 @@ body.tv footer .wrap{padding-block:clamp(3px,.6vh,8px);max-width:none}
 body.tv .modal .box{max-height:86vh}
 body.tv :focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 body.tv .ft-law .mq-track{animation-duration:60s}
+/* Emprego na Smart TV: 6 gráficos em 3 colunas x 2 linhas */
+body.tv #v-emprego .grid{flex:1;min-height:0;gap:clamp(6px,.6vw,12px);grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+body.tv #v-emprego .grid>.card{grid-column:auto;min-height:0;display:flex;flex-direction:column;padding:clamp(8px,1vh,14px);overflow:hidden}
+@media (max-width:900px){body.tv #v-emprego .grid{grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,minmax(0,1fr))}}
 /* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
 html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf],html.tv-device .status{display:none!important}
 /* Android, celulares e iPad: sem modo administrativo; só em computadores (Windows, Linux, Mac) */
@@ -426,6 +430,7 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
     <nav class="tabs" aria-label="Seções">
       <button class="tab" data-view="painel" aria-current="page">Painel</button>
       <button class="tab" data-view="bairros">Bairros</button>
+      <button class="tab" data-view="emprego">Emprego</button>
       <button class="tab" data-perm="ver" data-view="pessoas" hidden>Pessoas</button>
       <button class="tab" data-perm="editar" data-view="cadastro" hidden>Novo cadastro</button>
       <button class="tab" data-perm="bairros" data-view="config" hidden>Cadastrar Bairros</button>
@@ -484,6 +489,21 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
     <section class="view" id="v-bairros" hidden>
       <div class="head"><div><div class="eyebrow">Indicadores territoriais</div><h2>Bairros de Almadina</h2><p>Índice de vulnerabilidade calculado com renda, escolaridade, benefícios e saneamento das pessoas cadastradas.</p></div><button class="btn" type="button" data-pdf>Gerar Relatório</button></div>
       <div class="bairros" id="bairrosBox"></div>
+    </section>
+
+    <!-- EMPREGO -->
+    <section class="view" id="v-emprego" hidden>
+      <div class="head"><div><div class="eyebrow">Indicadores de trabalho e renda</div><h2>Emprego e desemprego</h2><p>Calculado automaticamente com a situação de trabalho das pessoas cadastradas.</p></div>
+        <div class="head-tools"><div class="chips" id="chipsEmprego" role="group" aria-label="Filtrar por bairro"></div><button class="btn" type="button" data-pdf>Gerar Relatório</button></div></div>
+      <div class="kpis" id="kpisEmp"></div>
+      <div class="grid">
+        <div class="card s6"><h3>Taxa de desemprego por bairro</h3><p class="cap">% da força de trabalho sem emprego · verde abaixo de 8%, âmbar de 8% a 15%, vermelho acima de 15%</p><div class="chart"><canvas id="chDesBairro"></canvas></div></div>
+        <div class="card s6"><h3>Situação de trabalho</h3><p class="cap">Pessoas em idade de trabalhar (15 anos ou mais)</p><div class="chart"><canvas id="chOcup"></canvas></div></div>
+        <div class="card s4"><h3>Desemprego por idade</h3><p class="cap">Taxa de desemprego em cada faixa etária</p><div class="chart"><canvas id="chDesIdade"></canvas></div></div>
+        <div class="card s4"><h3>Desemprego por sexo</h3><p class="cap">Taxa de desemprego de mulheres e homens</p><div class="chart"><canvas id="chDesSexo"></canvas></div></div>
+        <div class="card s4"><h3>Desemprego por escolaridade</h3><p class="cap">Taxa de desemprego por nível de estudo</p><div class="chart"><canvas id="chDesEsc"></canvas></div></div>
+        <div class="card s12"><h3>Trabalho por bairro</h3><p class="cap">Pessoas com carteira ou servidoras, informais e desempregadas</p><div class="chart"><canvas id="chFormal"></canvas></div></div>
+      </div>
     </section>
 
     <!-- PESSOAS -->
@@ -690,9 +710,13 @@ const FAIXAS=["0–5","6–14","15–17","18–29","30–59","60+"];
 const faixaOf=a=>a==null?null:a<=5?0:a<=14?1:a<=17?2:a<=29?3:a<=59?4:5;
 const RENDA=["Até R$ 218","R$ 218–706","R$ 706–1.518","Acima de R$ 1.518","Sem renda"];
 function rendaOf(r){const p=percap(r);if(!(+r.rendaFam))return 4;if(p<=218)return 0;if(p<=706)return 1;if(p<=1518)return 2;return 3}
+/* situação de trabalho: ocupados = 5 primeiros; formais = carteira e servidor */
+const OCUP=["Empregado(a) com carteira","Servidor(a) público(a)","Autônomo(a)","Trabalhador(a) rural","Trabalho informal / bico","Desempregado(a)","Aposentado(a) / Pensionista","Do lar","Estudante"];
+const OCUPADO=new Set(OCUP.slice(0,5)),FORMAL=new Set(OCUP.slice(0,2));
 function aggregate(list){
   const a={total:list.length,bf:0,semEsc:0,analf:0,rendaSum:0,rendaN:0,familias:0,esc:ESC.map(()=>0),fx:{F:FAIXAS.map(()=>0),M:FAIXAS.map(()=>0)},renda:RENDA.map(()=>0),
-    inf:{agua:0,esgoto:0,energia:0,lixo:0,calcamento:0},ben:{"Bolsa Família":0,"BPC":0,"Aposentadoria":0,"Auxílio Gás":0,"Tarifa Social":0,"Garantia-Safra":0},meses:{},criancas:0,idosos:0,defic:0,docN:0,semDoc:Object.fromEntries(Object.keys(DOCS).map(k=>[k,0]))};
+    inf:{agua:0,esgoto:0,energia:0,lixo:0,calcamento:0},ben:{"Bolsa Família":0,"BPC":0,"Aposentadoria":0,"Auxílio Gás":0,"Tarifa Social":0,"Garantia-Safra":0},meses:{},criancas:0,idosos:0,defic:0,docN:0,semDoc:Object.fromEntries(Object.keys(DOCS).map(k=>[k,0])),
+    trab:Object.fromEntries(OCUP.map(o=>[o,0])),forca:0,desemp:0,ocupados:0,formais:0,informais:0,desFx:FAIXAS.map(()=>0),forFx:FAIXAS.map(()=>0),desSx:{F:0,M:0},forSx:{F:0,M:0},desEsc:ESC.map(()=>0),forEsc:ESC.map(()=>0)};
   const fam=new Set();
   for(const r of list){
     if(r.bf==="sim"){a.bf++;a.ben["Bolsa Família"]++}
@@ -703,6 +727,9 @@ function aggregate(list){
     const ag=age(r.nasc),fi=faixaOf(ag);if(fi!=null){(r.sexo==="Masculino"?a.fx.M:a.fx.F)[fi]++}
     if(ag!=null&&ag<=14)a.criancas++;if(ag!=null&&ag>=60)a.idosos++;
     if(r.defic)a.defic++;
+    if(r.ocup&&r.ocup in a.trab){a.trab[r.ocup]++;const des=r.ocup==="Desempregado(a)";
+      if(des||OCUPADO.has(r.ocup)){a.forca++;const sx=r.sexo==="Masculino"?"M":"F";a.forSx[sx]++;if(fi!=null)a.forFx[fi]++;if(ei>=0)a.forEsc[ei]++;
+        if(des){a.desemp++;a.desSx[sx]++;if(fi!=null)a.desFx[fi]++;if(ei>=0)a.desEsc[ei]++}else{a.ocupados++;if(FORMAL.has(r.ocup))a.formais++;else a.informais++}}}
     if(Array.isArray(r.temdoc)){a.docN++;for(const k in DOCS)if(!r.temdoc.includes(k))a.semDoc[k]++}
     for(const k of (r.inf||[]))if(k in a.inf)a.inf[k]++;
     for(const b of (r.ben||[]))if(b in a.ben)a.ben[b]++;
@@ -755,6 +782,48 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#popPanel").hid
 /* ---------- render: Painel ---------- */
 let charts={};
 function curAgg(){if(!state.resumo)return null;return state.filter?state.resumo.bairros[state.filter]:state.resumo.todos}
+function kpiBox(box,k){
+  if(box.children.length!==k.length)box.innerHTML=k.map(x=>`<div class="kpi${x.hl?" hl":""}"><div class="lab">${x.l}</div><div class="val"></div><div class="sub"></div></div>`).join("");
+  k.forEach((x,i)=>{const c=box.children[i];c.querySelector(".sub").textContent=x.s;animarNum(c.querySelector(".val"),x.n,x.f,x.p)})}
+function renderChipsEmp(){const box=$("#chipsEmprego");box.innerHTML="";
+  ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderEmprego();sendTela()};box.appendChild(c)})}
+function renderEmprego(){
+  renderChipsEmp();const R=state.resumo,a=curAgg(),z=a&&a.trab?a:aggregate([]);
+  const N=x=>Math.round(x).toLocaleString("pt-BR"),P=x=>Math.round(x)+"%",PD=x=>(Math.round(x*10)/10).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
+  const tx=x=>x&&x.forca?x.desemp/x.forca*100:null,r1=v=>v==null?0:Math.round(v*10)/10,taxa=(d,f)=>f?Math.round(d/f*1000)/10:0;
+  kpiBox($("#kpisEmp"),[
+    {l:"Taxa de desemprego",n:r1(tx(z)),f:PD,p:.1,s:`${N(z.forca)} na força de trabalho`,hl:1},
+    {l:"Pessoas desempregadas",n:z.desemp,f:N,s:"procurando trabalho"},
+    {l:"Pessoas trabalhando",n:z.ocupados,f:N,s:"formais e informais"},
+    {l:"Trabalho informal",n:pct(z.informais,z.ocupados),f:P,s:`${N(z.informais)} sem carteira`},
+    {l:"Com carteira ou servidor",n:pct(z.formais,z.ocupados),f:P,s:`${N(z.formais)} pessoas`}]);
+  if(typeof Chart==="undefined")return;
+  const C=["--c1","--c2","--c3","--c4","--c5","--c6"].map(css),OK=css("--ok"),WN=css("--warn"),BD=css("--bad"),mu=css("--muted"),ln=css("--line"),sel=state.filter;
+  const cor=v=>v==null?ln:v>=15?BD:v>=8?WN:OK;
+  const pctX={min:0,ticks:{color:mu,callback:v=>v+"%"},grid:{color:ln}},pctY={beginAtZero:true,ticks:{color:mu,callback:v=>v+"%"},grid:{color:ln}},semGrade={ticks:{color:mu},grid:{display:false}};
+  const lab=[...BAIRROS,"Município"],ags=[...BAIRROS.map(b=>R&&R.bairros?R.bairros[b]:null),R?R.todos:null],tv=ags.map(x=>x&&x.trab?tx(x):null);
+  mkChart("chDesBairro",{type:"bar",data:{labels:lab,datasets:[{label:"Taxa de desemprego",data:tv.map(r1),
+      backgroundColor:tv.map((v,i)=>{const c=cor(v);return sel&&lab[i]!==sel&&i<BAIRROS.length?c+"55":c}),
+      borderColor:tv.map((v,i)=>i===lab.length-1?css("--fg"):"transparent"),borderWidth:tv.map((v,i)=>i===lab.length-1?1.5:0),borderRadius:4}]},
+    options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const x=ags[c.dataIndex];return x&&x.forca?`${PD(tx(x))} · ${N(x.desemp)} de ${N(x.forca)} pessoas`:"Sem dados"}}}},scales:{x:pctX,y:semGrade}})});
+  const pal=[C[0],css("--b4"),C[2],C[5],C[1],C[4],C[3],css("--b2"),ln],oc=OCUP.filter(o=>z.trab[o]);
+  mkChart("chOcup",{type:"doughnut",data:{labels:oc,datasets:[{data:oc.map(o=>z.trab[o]),backgroundColor:oc.map(o=>pal[OCUP.indexOf(o)]),borderColor:css("--surface"),borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"55%",animation:{duration:animLenta()?1100:500,easing:"easeOutCubic"},
+      plugins:{legend:{position:innerWidth<700?"bottom":"right",labels:{color:mu,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.label}: ${N(c.raw)} (${pct(c.raw,oc.reduce((s,o)=>s+z.trab[o],0))}%)`}}}}});
+  const fx=[2,3,4,5];
+  mkChart("chDesIdade",{type:"bar",data:{labels:fx.map(i=>FAIXAS[i]+" anos"),datasets:[{label:"Taxa de desemprego",data:fx.map(i=>taxa(z.desFx[i],z.forFx[i])),backgroundColor:C[2],borderRadius:4}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${PD(c.raw)} · ${N(z.desFx[fx[c.dataIndex]])} de ${N(z.forFx[fx[c.dataIndex]])}`}}},scales:{x:semGrade,y:pctY}})});
+  mkChart("chDesSexo",{type:"bar",data:{labels:["Mulheres","Homens"],datasets:[{label:"Taxa de desemprego",data:[taxa(z.desSx.F,z.forSx.F),taxa(z.desSx.M,z.forSx.M)],backgroundColor:[C[3],C[2]],borderRadius:4}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const k=c.dataIndex?"M":"F";return `${PD(c.raw)} · ${N(z.desSx[k])} de ${N(z.forSx[k])}`}}}},scales:{x:semGrade,y:pctY}})});
+  mkChart("chDesEsc",{type:"bar",data:{labels:ESC_CURTO,datasets:[{label:"Taxa de desemprego",data:ESC.map((_,i)=>taxa(z.desEsc[i],z.forEsc[i])),backgroundColor:ESC.map((_,i)=>i<3?C[1]:C[0]),borderRadius:4}]},
+    options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${PD(c.raw)} · ${N(z.desEsc[c.dataIndex])} de ${N(z.forEsc[c.dataIndex])}`}}},scales:{x:pctX,y:{ticks:{color:mu,font:{size:11}},grid:{display:false}}}})});
+  const bz=BAIRROS.map(b=>R&&R.bairros&&R.bairros[b]&&R.bairros[b].trab?R.bairros[b]:aggregate([]));
+  mkChart("chFormal",{type:"bar",data:{labels:BAIRROS,datasets:[
+      {label:"Com carteira ou servidor",data:bz.map(x=>x.formais),backgroundColor:C[0],borderRadius:3,stack:"s"},
+      {label:"Informais",data:bz.map(x=>x.informais),backgroundColor:C[1],borderRadius:3,stack:"s"},
+      {label:"Desempregados",data:bz.map(x=>x.desemp),backgroundColor:BD,borderRadius:3,stack:"s"}]},
+    options:baseOpts({scales:{x:{stacked:true,ticks:{color:mu},grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{color:mu,precision:0},grid:{color:ln}}}})});
+}
 function renderChips(){
   const box=$("#chipsPainel");box.innerHTML="";
   ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderPainel();sendTela()};box.appendChild(c)});
@@ -768,9 +837,7 @@ function renderKpis(a){
     {l:"Renda per capita média",n:a?a.renda_media:0,f:fmtBRL,p:.01,s:"por mês"},
     {l:"Crianças e idosos",n:a?(a.criancas+a.idosos):0,f:N,s:a?`${N(a.criancas)} até 14 · ${N(a.idosos)} com 60+`:"—"}
   ];
-  const box=$("#kpis");
-  if(box.children.length!==k.length)box.innerHTML=k.map(x=>`<div class="kpi${x.hl?" hl":""}"><div class="lab">${x.l}</div><div class="val"></div><div class="sub"></div></div>`).join("");
-  k.forEach((x,i)=>{const c=box.children[i];c.querySelector(".sub").textContent=x.s;animarNum(c.querySelector(".val"),x.n,x.f,x.p)});
+  kpiBox($("#kpis"),k);
 }
 /* anima um número do valor anterior até o novo (mais lento na Smart TV, para acompanhar a atualização) */
 const animLenta=()=>document.documentElement.classList.contains("tv-device")||document.body.classList.contains("tv");
@@ -960,12 +1027,12 @@ function renderPessoas(){
 function go(v){
   const need=VIEW_PERM[v];if(need&&!state.me){openLogin(v);return}if(need&&!can(need)){toast("Seu perfil não tem acesso a esta área");return}
   state.view=v;$$(".view").forEach(s=>s.hidden=s.id!=="v-"+v);$$(".tab").forEach(t=>t.setAttribute("aria-current",t.dataset.view===v?"page":"false"));const ct=document.querySelector(`.tab[data-view="${v}"]`);if(ct){const pe=ct.parentElement;if(pe.scrollWidth>pe.clientWidth)pe.scrollLeft=ct.offsetLeft-pe.clientWidth/2+ct.offsetWidth/2}
-  if(v==="painel")renderPainel();if(v==="bairros")renderBairros();if(v==="pessoas")renderPessoas();if(v==="config")renderConfig();if(v==="usuarios")renderUsuarios();if(v==="auditoria")renderAuditoria();
+  if(v==="painel")renderPainel();if(v==="bairros")renderBairros();if(v==="emprego")renderEmprego();if(v==="pessoas")renderPessoas();if(v==="config")renderConfig();if(v==="usuarios")renderUsuarios();if(v==="auditoria")renderAuditoria();
   if(v==="cadastro"&&!state.editing)resetForm();
   window.scrollTo({top:0});
 }
 /* controle da Smart TV: Painel/Bairros, filtro de bairro (Todos, Centro…) e indicador do mapa clicados no computador mudam a tela da TV */
-function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"&&v!=="emprego"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 $$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view);sendTela(t.dataset.view)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
@@ -1183,6 +1250,7 @@ async function buildXLSX(scope,nominal){
   dist("Pessoas sem documento","Documento","Sem o documento",Object.keys(DOCS).map(k=>[DOCS[k].l,sd[k]||0]),dn,XL.alta[1]);
   const infL={agua:"Água encanada",esgoto:"Rede de esgoto",energia:"Energia elétrica",lixo:"Coleta de lixo",calcamento:"Rua calçada"};
   dist("Acesso a serviços","Serviço","Com acesso",Object.keys(infL).map(k=>[infL[k],A.inf[k]||0]),t,XL.brand);
+  if(A.trab){const tt=OCUP.reduce((s,o)=>s+(A.trab[o]||0),0);dist("Situação de trabalho"+(A.forca?` · taxa de desemprego ${(Math.round(A.desemp/A.forca*1000)/10).toLocaleString("pt-BR")}%`:""),"Situação","Pessoas",OCUP.map(o=>[o,A.trab[o]||0]),tt,k=>k===5?XL.alta[1]:XL.brand2)}
 
   /* aba 2: lista nominal */
   let nn=0;
@@ -1327,19 +1395,21 @@ $("#btnCsv").onclick=async()=>{if(!can("exportar"))return;if(!state.records.leng
 
 /* ---------- armazenamento ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+/* só o computador que fez a alteração grava o resumo da TV (evita que outro PC aberto grave números lidos pela metade) */
+function marcarPublicar(){state.pubAte=Date.now()+20000}
 async function saveRec(id,rec){
-  if(state.db){const ref=id?state.db.collection("pessoas").doc(id):state.db.collection("pessoas").doc();await ref.set(rec);return}
+  if(state.db){marcarPublicar();const ref=id?state.db.collection("pessoas").doc(id):state.db.collection("pessoas").doc();await ref.set(rec);return}
   rec.id=id||uid();const i=state.records.findIndex(r=>r.id===rec.id);if(i>=0)state.records[i]=rec;else state.records.push(rec);persistLocal();onRecords()}
-async function delRec(id){if(state.db){await state.db.collection("pessoas").doc(id).delete();return}state.records=state.records.filter(r=>r.id!==id);persistLocal();onRecords()}
+async function delRec(id){if(state.db){marcarPublicar();await state.db.collection("pessoas").doc(id).delete();return}state.records=state.records.filter(r=>r.id!==id);persistLocal();onRecords()}
 function persistLocal(){ls("sig_local",JSON.stringify(state.records))}
 function onRecords(){if(state.cargaMassa){if(!state.recTimer)state.recTimer=setTimeout(()=>{state.recTimer=null;aplicarRecords()},700);return}aplicarRecords()}
-function aplicarRecords(){state.resumo=buildResumo(state.records);if(state.db&&state.canWrite!==false)schedulePublish();refresh()}
+function aplicarRecords(){state.resumo=buildResumo(state.records);if(state.db&&state.canWrite!==false&&(state.cargaMassa||Date.now()<(state.pubAte||0)))schedulePublish();refresh()}
 /* a Smart TV lê este resumo em tempo real: publica no máximo a cada 0,8 s, uma gravação por vez */
 function schedulePublish(){if(pubTimer)return;if(state.pubBusy){state.pubAgain=true;return}
   pubTimer=setTimeout(async()=>{pubTimer=null;const r=buildResumo(state.records);const cmp=JSON.stringify(Object.assign({},r,{atualizado:0}));if(cmp===lastPub)return;
     state.pubBusy=true;try{await state.db.doc("publico/resumo").set(r);lastPub=cmp}catch(e){}finally{state.pubBusy=false;if(state.pubAgain){state.pubAgain=false;schedulePublish()}}},800)}
 function refresh(){if(state.resumo){state.resumo.bairros=state.resumo.bairros||{};for(const b of BAIRROS)if(!state.resumo.bairros[b])state.resumo.bairros[b]=aggregate([])}
-  if(state.view==="config")renderConfig();if(state.view==="painel")renderPainel();if(state.view==="bairros")renderBairros();if(state.view==="pessoas")renderPessoas();
+  if(state.view==="config")renderConfig();if(state.view==="painel")renderPainel();if(state.view==="bairros")renderBairros();if(state.view==="emprego")renderEmprego();if(state.view==="pessoas")renderPessoas();
   updatePop();const r=state.resumo;$("#updTxt").textContent=r&&r.atualizado?"Dados atualizados em "+new Date(r.atualizado).toLocaleString("pt-BR"):""}
 function setStatus(kind,txt){$("#dot").className="dot"+(kind?" "+kind:"");$("#statusTxt").textContent=txt}
 
@@ -1348,7 +1418,22 @@ function setStatus(kind,txt){$("#dot").className="dot"+(kind?" "+kind:"");$("#st
 const EX_TOTAL=5296;/* população de Almadina-BA */
 async function comRetry(fn){for(let k=0;;k++){try{return await fn()}catch(e){const c=e&&e.code;if(k>=6||c==="quota_exceeded"||c==="invalid_argument"||c==="permission-denied"||c==="revoked"||c==="not_granted")throw e;await new Promise(r=>setTimeout(r,500*Math.pow(2,Math.min(k,4))+Math.random()*400))}}}
 async function emParalelo(itens,n,fn){let i=0;const w=async()=>{while(i<itens.length){const k=i++;await fn(itens[k],k)}};await Promise.all(Array.from({length:Math.min(n,itens.length)},w))}
-function fimCargaMassa(){state.cargaMassa=false;clearTimeout(state.recTimer);state.recTimer=null;if(state.db&&state.db.pausar)state.db.pausar("pessoas",false);aplicarRecords();if(state.db&&state.db.recarregar)state.db.recarregar("pessoas")}
+function fimCargaMassa(){marcarPublicar();state.cargaMassa=false;clearTimeout(state.recTimer);state.recTimer=null;if(state.db&&state.db.pausar)state.db.pausar("pessoas",false);aplicarRecords();if(state.db&&state.db.recarregar)state.db.recarregar("pessoas")}
+/* situação de trabalho dos exemplos: mais desemprego onde a infraestrutura/renda é menor; trabalho rural na Zona Rural */
+function ocupExemplo(ag,pinf,b,pick){
+  if(ag<15)return "Não se aplica (criança)";
+  if(ag<18)return Math.random()<.8?"Estudante":pick(["Trabalho informal / bico","Desempregado(a)"]);
+  if(ag>=60&&Math.random()<.7)return "Aposentado(a) / Pensionista";
+  const r=Math.random(),des=.03+(1-pinf)*.25;
+  if(r<des)return "Desempregado(a)";
+  if(r<des+.07)return "Do lar";
+  if(ag<25&&r<des+.19)return "Estudante";
+  const o=Math.random(),rural=b==="Zona Rural"?.5:.06,f=1-rural,cart=pinf*.42*f,serv=pinf*.1*f,aut=.1*f;
+  if(o<rural)return "Trabalhador(a) rural";
+  if(o<rural+cart)return "Empregado(a) com carteira";
+  if(o<rural+cart+serv)return "Servidor(a) público(a)";
+  if(o<rural+cart+serv+aut)return "Autônomo(a)";
+  return "Trabalho informal / bico"}
 async function loadExamples(){
   if(state.cargaMassa)return;
   if(state.db&&!state.recordsLoaded){toast("Aguarde: os cadastros ainda estão carregando");return}
@@ -1366,7 +1451,7 @@ async function loadExamples(){
     const rf=bf?Math.round(300+Math.random()*700):Math.round(800+Math.random()*2600*pinf);
     const inf=[];if(Math.random()<.5+pinf/2)inf.push("agua");if(Math.random()<pinf)inf.push("esgoto");if(Math.random()<.95)inf.push("energia");if(Math.random()<.4+pinf/2)inf.push("lixo");if(Math.random()<pinf)inf.push("calcamento");
     const m=new Date();m.setMonth(m.getMonth()-Math.floor(Math.random()*6));
-    recs.push({exemplo:true,codFam:"EX-"+(i%BAIRROS.length)+"-"+Math.floor(i/(BAIRROS.length*3)),parentesco:Math.floor(i/BAIRROS.length)%3===0?"Responsável familiar":pick(["Cônjuge","Filho(a)","Filho(a)","Neto(a)"]),nome:`${fem?pick(nomesF):pick(nomesM)} ${pick(sob)} ${pick(sob)} (exemplo)`,nasc:bd.toISOString().slice(0,10),sexo:fem?"Feminino":"Masculino",cor:pick(["Parda","Preta","Parda","Branca"]),bairro:b,esc:e,ler:e===ESC[0]&&ag>6?pick(["Não","Só assina o nome"]):"Sim",bf:bf?"sim":"nao",bfValor:bf?600:"",rendaFam:rf,rendaInd:"",moradores:mor,ben:Math.random()<.2?["Auxílio Gás"]:[],inf,saude:[],ocup:ag<15?"Não se aplica (criança)":pick(["Trabalho informal / bico","Trabalhador(a) rural","Desempregado(a)","Do lar"]),temdoc:Object.keys(DOCS).filter(k=>Math.random()>(k==="titulo"&&ag<16?1:k==="ctps"?(ag<16?1:.55):(1-pinf)*.35)),cep:"45640-000",cpf:"",nis:"",criadoEm:m.toISOString(),atualizadoEm:m.toISOString(),agente:"Exemplo"})}
+    recs.push({exemplo:true,codFam:"EX-"+(i%BAIRROS.length)+"-"+Math.floor(i/(BAIRROS.length*3)),parentesco:Math.floor(i/BAIRROS.length)%3===0?"Responsável familiar":pick(["Cônjuge","Filho(a)","Filho(a)","Neto(a)"]),nome:`${fem?pick(nomesF):pick(nomesM)} ${pick(sob)} ${pick(sob)} (exemplo)`,nasc:bd.toISOString().slice(0,10),sexo:fem?"Feminino":"Masculino",cor:pick(["Parda","Preta","Parda","Branca"]),bairro:b,esc:e,ler:e===ESC[0]&&ag>6?pick(["Não","Só assina o nome"]):"Sim",bf:bf?"sim":"nao",bfValor:bf?600:"",rendaFam:rf,rendaInd:"",moradores:mor,ben:Math.random()<.2?["Auxílio Gás"]:[],inf,saude:[],ocup:ocupExemplo(ag,pinf,b,pick),temdoc:Object.keys(DOCS).filter(k=>Math.random()>(k==="titulo"&&ag<16?1:k==="ctps"?(ag<16?1:.55):(1-pinf)*.35)),cep:"45640-000",cpf:"",nis:"",criadoEm:m.toISOString(),atualizadoEm:m.toISOString(),agente:"Exemplo"})}
   const nf=x=>x.toLocaleString("pt-BR"),prog=n=>{if(btn)btn.textContent=`Gravando exemplos… ${nf(n)} de ${nf(recs.length)}`};
   const base=uid(),ids=recs.map((_,i)=>"ex"+base+"-"+i);let n=0;
   state.cargaMassa=true;if(state.db&&state.db.pausar)state.db.pausar("pessoas",true);prog(0);
@@ -1418,7 +1503,7 @@ function exitFs(){if(!fsEl())return;try{const p=(document.exitFullscreen||docume
 function setTV(on,fromUser,auto){document.body.classList.toggle("tv",on);document.documentElement.classList.toggle("tv-on",on);
   const b=$("#tvBtn");b.setAttribute("aria-pressed",String(on));const l=on?"Sair do modo TV":"Ativar o modo TV (tela cheia, sem rolagem)";b.setAttribute("aria-label",l);b.title=l;
   if(!auto)ls("sig_tv",on?"1":"0");
-  if(on&&state.view!=="painel"&&state.view!=="bairros")go("painel");
+  if(on&&state.view!=="painel"&&state.view!=="bairros"&&state.view!=="emprego")go("painel");
   if(fromUser){if(on)enterFs();else exitFs()}
   try{if(on&&location.hash!=="#tv")history.replaceState(null,"","#tv");if(!on&&location.hash==="#tv")history.replaceState(null,"",location.pathname+location.search)}catch(e){}
   setTimeout(()=>{refresh();window.dispatchEvent(new Event("resize"))},60)}
@@ -1466,7 +1551,7 @@ function fillBairroSelects(){
 }
 async function saveBairros(lista){
   const L=cleanList(lista);if(!L)throw {code:"invalid_argument"};
-  if(state.db){await state.db.doc("publico/bairros").set({lista:L,atualizadoEm:new Date().toISOString()})}
+  if(state.db){marcarPublicar();await state.db.doc("publico/bairros").set({lista:L,atualizadoEm:new Date().toISOString()})}
   else{ls("sig_bairros",JSON.stringify(L));applyBairros(L)}
 }
 function renderConfig(){
@@ -1620,7 +1705,7 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
     if((d.tema==="dark"||d.tema==="light")&&d.tema!==effTheme()){document.documentElement.setAttribute("data-theme",d.tema);ls("sig_tema",d.tema)}
     if(typeof d.filtro==="string"&&d.filtro!==state.filter){if(!d.filtro||BAIRROS.includes(d.filtro)){state.filter=d.filtro;state.telaPend=null;ch=true}else state.telaPend=d.filtro}
     if(d.metrica&&METRICS[d.metrica]&&d.metrica!==state.mapMetric){state.mapMetric=d.metrica;ch=true}
-    if((v==="painel"||v==="bairros")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel()}catch(e){}},()=>{});
+    if((v==="painel"||v==="bairros"||v==="emprego")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel();else if(ch&&state.view==="emprego")renderEmprego()}catch(e){}},()=>{});
   function ligarPessoas(){if(state.pessoasSub)return;
     state.pessoasSub=db.collection("pessoas").onSnapshot(snap=>{if(!state.authOk||state.cargaMassa)return;state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
         gotLive=true;clearTimeout(timer);setStatus("live","Sincronizado em tempo real");onRecords()},
