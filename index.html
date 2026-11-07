@@ -395,10 +395,21 @@ body.tv footer .wrap{padding-block:clamp(3px,.6vh,8px);max-width:none}
 body.tv .modal .box{max-height:86vh}
 body.tv :focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 body.tv .ft-law .mq-track{animation-duration:60s}
-/* Emprego na Smart TV: 6 gráficos em 3 colunas x 2 linhas */
-body.tv #v-emprego .grid{flex:1;min-height:0;gap:clamp(6px,.6vw,12px);grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+#tbOcup td,#tbOcup th{text-align:right;font-variant-numeric:tabular-nums}
+#tbOcup td:first-child,#tbOcup th:first-child{text-align:left}
+#tbOcup .m{font-weight:700}
+#tbOcup .sel{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+#tbOcup tr.des td{color:var(--bad);font-weight:600}
+#tbOcup tr.tot td{font-weight:700;border-top:2px solid var(--line)}
+#tbOcup tr.id60 td{color:var(--muted);font-style:italic}
+/* Emprego na Smart TV: 6 gráficos + tabela em 4 colunas x 2 linhas */
+body.tv #v-emprego .grid{flex:1;min-height:0;gap:clamp(6px,.6vw,12px);grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
 body.tv #v-emprego .grid>.card{grid-column:auto;min-height:0;display:flex;flex-direction:column;padding:clamp(8px,1vh,14px);overflow:hidden}
-@media (max-width:900px){body.tv #v-emprego .grid{grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,minmax(0,1fr))}}
+body.tv #v-emprego .grid>.card.emp-tab{grid-column:span 2}
+body.tv .emp-tab .table-box{flex:1 1 auto;min-height:0;overflow:hidden}
+body.tv #tbOcup{font-size:clamp(9px,1.15vh,15px);line-height:1.2}
+body.tv #tbOcup td,body.tv #tbOcup th{padding:.15em clamp(4px,.4vw,8px);font-size:inherit}
+@media (max-width:900px){body.tv #v-emprego .grid{grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,minmax(0,1fr))}}
 /* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
 html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf],html.tv-device .status{display:none!important}
 /* Android, celulares e iPad: sem modo administrativo; só em computadores (Windows, Linux, Mac) */
@@ -499,11 +510,12 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
       <div class="kpis" id="kpisEmp"></div>
       <div class="grid">
         <div class="card s6"><h3>Taxa de desemprego por bairro</h3><p class="cap">% da força de trabalho sem emprego · verde abaixo de 8%, âmbar de 8% a 15%, vermelho acima de 15%</p><div class="chart"><canvas id="chDesBairro"></canvas></div></div>
-        <div class="card s6"><h3>Situação de trabalho</h3><p class="cap">Pessoas em idade de trabalhar (15 anos ou mais)</p><div class="chart"><canvas id="chOcup"></canvas></div></div>
+        <div class="card s6"><h3>Situação de trabalho</h3><p class="cap">Todas as pessoas cadastradas, conforme a situação de trabalho informada</p><div class="chart"><canvas id="chOcup"></canvas></div></div>
         <div class="card s4"><h3>Desemprego por idade</h3><p class="cap">Taxa de desemprego em cada faixa etária</p><div class="chart"><canvas id="chDesIdade"></canvas></div></div>
         <div class="card s4"><h3>Desemprego por sexo</h3><p class="cap">Taxa de desemprego de mulheres e homens</p><div class="chart"><canvas id="chDesSexo"></canvas></div></div>
         <div class="card s4"><h3>Desemprego por escolaridade</h3><p class="cap">Taxa de desemprego por nível de estudo</p><div class="chart"><canvas id="chDesEsc"></canvas></div></div>
-        <div class="card s12"><h3>Trabalho por bairro</h3><p class="cap">Pessoas com carteira ou servidoras, informais e desempregadas</p><div class="chart"><canvas id="chFormal"></canvas></div></div>
+        <div class="card s12"><h3>Trabalho, aposentados e idosos por bairro</h3><p class="cap" id="capFormal">Pessoas com carteira ou servidoras, informais e desempregadas · aposentados e pessoas com 60 anos ou mais</p><div class="chart"><canvas id="chFormal"></canvas></div></div>
+        <div class="card s12 emp-tab"><h3>Situação de trabalho por bairro</h3><p class="cap">Número de pessoas em cada situação · atualiza na hora quando um cadastro é feito ou editado</p><div class="table-box"><table id="tbOcup"></table></div></div>
       </div>
     </section>
 
@@ -712,12 +724,12 @@ const faixaOf=a=>a==null?null:a<=5?0:a<=14?1:a<=17?2:a<=29?3:a<=59?4:5;
 const RENDA=["Até R$ 218","R$ 218–706","R$ 706–1.518","Acima de R$ 1.518","Sem renda"];
 function rendaOf(r){const p=percap(r);if(!(+r.rendaFam))return 4;if(p<=218)return 0;if(p<=706)return 1;if(p<=1518)return 2;return 3}
 /* situação de trabalho: ocupados = 5 primeiros; formais = carteira e servidor */
-const OCUP=["Empregado(a) com carteira","Servidor(a) público(a)","Autônomo(a)","Trabalhador(a) rural","Trabalho informal / bico","Desempregado(a)","Aposentado(a) / Pensionista","Do lar","Estudante"];
+const OCUP=["Empregado(a) com carteira","Servidor(a) público(a)","Autônomo(a)","Trabalhador(a) rural","Trabalho informal / bico","Desempregado(a)","Aposentado(a) / Pensionista","Do lar","Estudante","Não se aplica (criança)"];
 const OCUPADO=new Set(OCUP.slice(0,5)),FORMAL=new Set(OCUP.slice(0,2));
 function aggregate(list){
   const a={total:list.length,bf:0,semEsc:0,analf:0,rendaSum:0,rendaN:0,familias:0,esc:ESC.map(()=>0),fx:{F:FAIXAS.map(()=>0),M:FAIXAS.map(()=>0)},renda:RENDA.map(()=>0),
     inf:{agua:0,esgoto:0,energia:0,lixo:0,calcamento:0},ben:{"Bolsa Família":0,"BPC":0,"Aposentadoria":0,"Auxílio Gás":0,"Tarifa Social":0,"Garantia-Safra":0},meses:{},criancas:0,idosos:0,defic:0,docN:0,semDoc:Object.fromEntries(Object.keys(DOCS).map(k=>[k,0])),
-    trab:Object.fromEntries(OCUP.map(o=>[o,0])),forca:0,desemp:0,ocupados:0,formais:0,informais:0,desFx:FAIXAS.map(()=>0),forFx:FAIXAS.map(()=>0),desSx:{F:0,M:0},forSx:{F:0,M:0},desEsc:ESC.map(()=>0),forEsc:ESC.map(()=>0)};
+    trab:Object.fromEntries(OCUP.map(o=>[o,0])),apos60:0,forca:0,desemp:0,ocupados:0,formais:0,informais:0,desFx:FAIXAS.map(()=>0),forFx:FAIXAS.map(()=>0),desSx:{F:0,M:0},forSx:{F:0,M:0},desEsc:ESC.map(()=>0),forEsc:ESC.map(()=>0)};
   const fam=new Set();
   for(const r of list){
     if(r.bf==="sim"){a.bf++;a.ben["Bolsa Família"]++}
@@ -728,6 +740,7 @@ function aggregate(list){
     const ag=age(r.nasc),fi=faixaOf(ag);if(fi!=null){(r.sexo==="Masculino"?a.fx.M:a.fx.F)[fi]++}
     if(ag!=null&&ag<=14)a.criancas++;if(ag!=null&&ag>=60)a.idosos++;
     if(r.defic)a.defic++;
+    if(r.ocup==="Aposentado(a) / Pensionista"&&ag!=null&&ag>=60)a.apos60++;
     if(r.ocup&&r.ocup in a.trab){a.trab[r.ocup]++;const des=r.ocup==="Desempregado(a)";
       if(des||OCUPADO.has(r.ocup)){a.forca++;const sx=r.sexo==="Masculino"?"M":"F";a.forSx[sx]++;if(fi!=null)a.forFx[fi]++;if(ei>=0)a.forEsc[ei]++;
         if(des){a.desemp++;a.desSx[sx]++;if(fi!=null)a.desFx[fi]++;if(ei>=0)a.desEsc[ei]++}else{a.ocupados++;if(FORMAL.has(r.ocup))a.formais++;else a.informais++}}}
@@ -788,6 +801,22 @@ function kpiBox(box,k){
   k.forEach((x,i)=>{const c=box.children[i];c.querySelector(".sub").textContent=x.s;animarNum(c.querySelector(".val"),x.n,x.f,x.p)})}
 function renderChipsEmp(){const box=$("#chipsEmprego");box.innerHTML="";
   ["",...BAIRROS].forEach(b=>{const c=document.createElement("button");c.className="chip";c.type="button";c.textContent=b||"Todos";c.setAttribute("aria-pressed",String(state.filter===b));c.onclick=()=>{state.filter=b;renderEmprego();sendTela()};box.appendChild(c)})}
+function renderTabOcup(R,sel){const tb=$("#tbOcup");if(!tb)return;
+  const N=x=>Math.round(x||0).toLocaleString("pt-BR"),cols=[...BAIRROS.map(b=>({l:b,a:R&&R.bairros?R.bairros[b]:null})),{l:"Município",a:R?R.todos:null,m:1}];
+  const v=(a,o)=>a&&a.trab?a.trab[o]||0:0,ni=a=>a?Math.max(0,(a.total||0)-OCUP.reduce((s,o)=>s+v(a,o),0)):0;
+  const cl=c=>[c.m?"m":"",sel&&c.l===sel?"sel":""].join(" ").trim();
+  const td=(c,x)=>`<td class="${cl(c)}">${N(x)}</td>`;
+  const linhas=OCUP.map(o=>[o,c=>v(c.a,o)]).concat([["Não informado",c=>ni(c.a)]]);
+  tb.innerHTML=`<thead><tr><th>Situação</th>${cols.map(c=>`<th class="${cl(c)}">${esc(c.l)}</th>`).join("")}</tr></thead><tbody>`+
+    linhas.filter(([o,f])=>o!=="Não informado"||cols.some(c=>f(c))).map(([o,f])=>`<tr${o==="Desempregado(a)"?' class="des"':""}><td>${esc(o)}</td>${cols.map(c=>td(c,f(c))).join("")}</tr>`).join("")+
+    `<tr class="tot"><td>Total</td>${cols.map(c=>td(c,c.a?c.a.total:0)).join("")}</tr><tr class="id60"><td>Pessoas com 60 anos ou mais</td>${cols.map(c=>td(c,c.a?c.a.idosos:0)).join("")}</tr></tbody>`;
+  ajustarTabOcup()}
+/* na Smart TV a tabela precisa caber inteira no cartão: diminui a letra até caber */
+function ajustarTabOcup(){const tb=$("#tbOcup");if(!tb)return;const box=tb.parentElement;tb.style.fontSize="";
+  if(!document.body.classList.contains("tv")||!box.clientHeight)return;
+  let f=Math.min(16,Math.max(9,innerHeight*.0125));tb.style.fontSize=f+"px";
+  while(f>7&&(box.scrollHeight>box.clientHeight+1||box.scrollWidth>box.clientWidth+1)){f-=.5;tb.style.fontSize=f+"px"}}
+addEventListener("resize",()=>{clearTimeout(ajustarTabOcup.t);ajustarTabOcup.t=setTimeout(ajustarTabOcup,200)});
 function renderEmprego(){
   renderChipsEmp();const R=state.resumo,a=curAgg(),z=a&&a.trab?a:aggregate([]);$("#empAviso").hidden=!(a&&a.total&&!a.trab);
   const N=x=>Math.round(x).toLocaleString("pt-BR"),P=x=>Math.round(x)+"%",PD=x=>(Math.round(x*10)/10).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
@@ -807,7 +836,7 @@ function renderEmprego(){
       backgroundColor:tv.map((v,i)=>{const c=cor(v);return sel&&lab[i]!==sel&&i<BAIRROS.length?c+"55":c}),
       borderColor:tv.map((v,i)=>i===lab.length-1?css("--fg"):"transparent"),borderWidth:tv.map((v,i)=>i===lab.length-1?1.5:0),borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const x=ags[c.dataIndex];return x&&x.forca?`${PD(tx(x))} · ${N(x.desemp)} de ${N(x.forca)} pessoas`:"Sem dados"}}}},scales:{x:pctX,y:semGrade}})});
-  const pal=[C[0],css("--b4"),C[2],C[5],C[1],C[4],C[3],css("--b2"),ln],oc=OCUP.filter(o=>z.trab[o]);
+  const pal=[C[0],css("--b4"),C[2],C[5],C[1],C[4],C[3],css("--b2"),css("--b3"),mu],oc=OCUP.filter(o=>z.trab[o]);
   mkChart("chOcup",{type:"doughnut",data:{labels:oc,datasets:[{data:oc.map(o=>z.trab[o]),backgroundColor:oc.map(o=>pal[OCUP.indexOf(o)]),borderColor:css("--surface"),borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:"55%",animation:{duration:animLenta()?1100:500,easing:"easeOutCubic"},
       plugins:{legend:{position:innerWidth<700?"bottom":"right",labels:{color:mu,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.label}: ${N(c.raw)} (${pct(c.raw,oc.reduce((s,o)=>s+z.trab[o],0))}%)`}}}}});
@@ -818,11 +847,16 @@ function renderEmprego(){
     options:baseOpts({plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const k=c.dataIndex?"M":"F";return `${PD(c.raw)} · ${N(z.desSx[k])} de ${N(z.forSx[k])}`}}}},scales:{x:semGrade,y:pctY}})});
   mkChart("chDesEsc",{type:"bar",data:{labels:ESC_CURTO,datasets:[{label:"Taxa de desemprego",data:ESC.map((_,i)=>taxa(z.desEsc[i],z.forEsc[i])),backgroundColor:ESC.map((_,i)=>i<3?C[1]:C[0]),borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${PD(c.raw)} · ${N(z.desEsc[c.dataIndex])} de ${N(z.forEsc[c.dataIndex])}`}}},scales:{x:pctX,y:{ticks:{color:mu,font:{size:11}},grid:{display:false}}}})});
+  renderTabOcup(R,sel);
+  const AP="Aposentado(a) / Pensionista",zi=a&&a.total?a:z,capF=$("#capFormal");
+  if(capF)capF.innerHTML=`<b>${esc(sel||"Município")}: ${N(zi.idosos||0)} pessoas com 60 anos ou mais · ${N(z.trab[AP]||0)} aposentados ou pensionistas${zi.apos60!=null?` (${N(zi.apos60)} com 60 anos ou mais)`:""}</b>`;
   const bz=BAIRROS.map(b=>R&&R.bairros&&R.bairros[b]&&R.bairros[b].trab?R.bairros[b]:aggregate([]));
   mkChart("chFormal",{type:"bar",data:{labels:BAIRROS,datasets:[
       {label:"Com carteira ou servidor",data:bz.map(x=>x.formais),backgroundColor:C[0],borderRadius:3,stack:"s"},
       {label:"Informais",data:bz.map(x=>x.informais),backgroundColor:C[1],borderRadius:3,stack:"s"},
-      {label:"Desempregados",data:bz.map(x=>x.desemp),backgroundColor:BD,borderRadius:3,stack:"s"}]},
+      {label:"Desempregados",data:bz.map(x=>x.desemp),backgroundColor:BD,borderRadius:3,stack:"s"},
+      {label:"Aposentados ou pensionistas",data:bz.map(x=>x.trab[AP]||0),backgroundColor:C[3],borderRadius:3,stack:"a"},
+      {label:"60 anos ou mais",data:bz.map(x=>x.idosos||0),backgroundColor:css("--b2"),borderRadius:3,stack:"i"}]},
     options:baseOpts({scales:{x:{stacked:true,ticks:{color:mu},grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{color:mu,precision:0},grid:{color:ln}}}})});
 }
 function renderChips(){
