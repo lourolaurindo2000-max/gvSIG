@@ -1521,7 +1521,7 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
     if(d.metrica&&METRICS[d.metrica]&&d.metrica!==state.mapMetric){state.mapMetric=d.metrica;ch=true}
     if((v==="painel"||v==="bairros")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel()}catch(e){}},()=>{});
   db.collection("pessoas").onSnapshot(snap=>{state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
-      gotLive=true;clearTimeout(timer);setStatus("live","Conectado ao Supabase · sincronizado em tempo real");onRecords()},
+      gotLive=true;clearTimeout(timer);setStatus("live","Sincronizado em tempo real");onRecords()},
     err=>{clearTimeout(timer);setStatus("warn","Não foi possível ler os cadastros no Supabase. Recarregue a página.")});
 })();
 document.querySelectorAll(".yr").forEach(e=>e.textContent=new Date().getFullYear());
