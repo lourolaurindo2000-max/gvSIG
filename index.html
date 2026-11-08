@@ -70,6 +70,12 @@ button{cursor:pointer}
 .brand-txt{display:flex;flex-direction:column;min-width:0}
 .brand-txt strong{font-family:var(--f-display);font-size:17px;font-weight:700;line-height:1.15}
 .brand-txt span{font-size:12px;opacity:.8;letter-spacing:.04em;text-transform:uppercase}
+/* relógio do topo: hora, dia e ano (horário da Bahia), atualiza a cada segundo */
+.clock{display:flex;flex-direction:column;justify-content:center;padding-left:12px;border-left:1px solid rgba(255,255,255,.3);line-height:1.15;white-space:nowrap;flex:none}
+.clock b{font-family:var(--f-display);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent)}
+.clock span{font-size:12px;opacity:.8;letter-spacing:.02em}
+body.tv .clock b{font-size:clamp(14px,2vh,22px)}
+body.tv .clock span{font-size:clamp(11px,1.3vh,16px)}
 .tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
 .tab{background:transparent;border:0;color:var(--brand-ink);opacity:.78;padding:8px 12px;border-radius:8px;font-weight:600;font-size:14px}
 .tab:hover{opacity:1;background:rgba(255,255,255,.08)}
@@ -451,6 +457,12 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">SIG</div>
       <div class="brand-txt"><strong>Sistema Integrado de Gestão</strong><span>Prefeitura de Almadina · Bahia</span></div>
+      <div class="clock" id="clock" role="timer" aria-label="Data e hora atuais"><b id="clkH">--:--:--</b><span id="clkD"></span></div>
+      <script>(function(){var h=document.getElementById("clkH"),d=document.getElementById("clkD"),c=document.getElementById("clock");
+        function mk(o){try{o.timeZone="America/Bahia";return new Intl.DateTimeFormat("pt-BR",o)}catch(e){delete o.timeZone;return new Intl.DateTimeFormat("pt-BR",o)}}
+        var fh=mk({hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}),fw=mk({weekday:"short"}),fd=mk({day:"2-digit",month:"2-digit",year:"numeric"}),fl=mk({weekday:"long",day:"numeric",month:"long",year:"numeric"});
+        function tick(){var n=new Date();h.textContent=fh.format(n);d.textContent=fw.format(n).replace(".","")+" · "+fd.format(n);c.title=fl.format(n);setTimeout(tick,1000-(Date.now()%1000)+5)}
+        tick()})();</script>
     </div>
     <nav class="tabs" aria-label="Seções">
       <button class="tab" data-view="painel" aria-current="page">Painel</button>
