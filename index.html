@@ -712,8 +712,8 @@ const missingDocs=r=>Array.isArray(r.temdoc)?Object.keys(DOCS).filter(k=>!r.temd
 const FB='"Public Sans","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif';
 const ESC_CURTO=["Sem escolaridade","Fund. incompleto","Fund. completo","Médio incompleto","Médio completo","Sup. incompleto","Sup. completo","Pós-graduação"];
 const ESC=["Sem escolaridade","Fundamental incompleto","Fundamental completo","Médio incompleto","Médio completo","Superior incompleto","Superior completo","Pós-graduação"];
-/* população de referência do município (atualizar quando sair a estimativa de 2026) */
-const POP_REF={ano:2025,total:5296};
+/* população de referência do município: estimativa IBGE de 1º/07/2026 (DOU 2026). Atualizar quando sair a de 2027 (IBGE publica até o fim de agosto). */
+const POP_REF={ano:2026,total:5267};
 const ESC_MIN=[0,5,13,13,16,16,19,20];/* idade mínima plausível para cada nível de ESC */
 const escMaxIdade=a=>a<6?0:a<=14?1:a<=17?3:a<=21?5:7;/* nível típico máximo por idade (usado nos exemplos) */
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
@@ -1089,7 +1089,7 @@ function renderPessoas(){
   else tb.innerHTML=list.slice(0,max).map(r=>{const a=age(r.nasc);return `<tr><td><div class="name-cell"><b>${esc(r.nome)}</b>${r.exemplo?' <span class="pill ex">exemplo</span>':""}${can("editar")?`<button class="ico-btn" type="button" data-act="nome" data-id="${r.id}" title="Corrigir nome" aria-label="Corrigir nome de ${esc(r.nome)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg></button>`:""}</div></td><td class="mono">${hasDoc(r,"cpf")===false?'<span class="pill">Não possui</span>':(esc(r.cpf)||"—")}</td><td>${a==null?"—":a}</td><td>${esc(r.bairro)}</td><td>${esc(r.esc)}</td><td>${r.rendaFam!==""&&r.rendaFam!=null?fmtBRL(percap(r)):"—"}</td><td>${r.bf==="sim"?'<span class="pill bf">Bolsa Família</span>':'<span class="pill">Não</span>'}</td>
     <td><div class="acts"><button class="btn sm" data-act="ver" data-id="${r.id}">Ver</button>${can("editar")?`<button class="btn sm" data-act="edit" data-id="${r.id}">Editar</button>`:""}${can("excluir")?`<button class="btn sm danger" data-act="del" data-id="${r.id}">Excluir</button>`:""}</div></td></tr>`}).join("")+(list.length>max?`<tr><td colspan="8" style="text-align:center"><button class="btn" type="button" data-act="mais">Mostrar mais ${Math.min(200,list.length-max)} · exibindo ${max.toLocaleString("pt-BR")} de ${list.length.toLocaleString("pt-BR")}</button></td></tr>`:"");
   const ex=state.records.filter(r=>r.exemplo).length;
-  $("#examplesBox").innerHTML=!can("exemplos")||state.cargaMassa?"":state.records.length===0&&(state.db===null||state.recordsLoaded)?`<button class="btn" id="btnEx" type="button">Carregar 5.296 cadastros de exemplo para testar</button>`:ex?`<button class="btn danger" id="btnRmEx" type="button">Remover os ${ex} cadastros de exemplo</button>`:"";
+  $("#examplesBox").innerHTML=!can("exemplos")||state.cargaMassa?"":state.records.length===0&&(state.db===null||state.recordsLoaded)?`<button class="btn" id="btnEx" type="button">Carregar 5.267 cadastros de exemplo para testar</button>`:ex?`<button class="btn danger" id="btnRmEx" type="button">Remover os ${ex} cadastros de exemplo</button>`:"";
   const be=$("#btnEx");if(be)be.onclick=loadExamples;const br=$("#btnRmEx");if(br)br.onclick=()=>confirmBox("Remover exemplos?",`Os ${ex} cadastros marcados como exemplo serão apagados. Os cadastros reais continuam.`,"Remover",removeExamples);
 }
 
@@ -1498,7 +1498,7 @@ function setStatus(kind,txt){$("#dot").className="dot"+(kind?" "+kind:"");$("#st
 
 /* exemplos */
 /* exemplos: grava em lotes (Supabase) ou em paralelo controlado (banco do Claude), com nova tentativa em falha temporária */
-const EX_TOTAL=5296;/* população de Almadina-BA */
+const EX_TOTAL=5267;/* população de Almadina-BA (IBGE 2026) */
 async function comRetry(fn){for(let k=0;;k++){try{return await fn()}catch(e){const c=e&&e.code;if(k>=6||c==="quota_exceeded"||c==="invalid_argument"||c==="permission-denied"||c==="revoked"||c==="not_granted")throw e;await new Promise(r=>setTimeout(r,500*Math.pow(2,Math.min(k,4))+Math.random()*400))}}}
 async function emParalelo(itens,n,fn){let i=0;const w=async()=>{while(i<itens.length){const k=i++;await fn(itens[k],k)}};await Promise.all(Array.from({length:Math.min(n,itens.length)},w))}
 function fimCargaMassa(){marcarPublicar();state.cargaMassa=false;clearTimeout(state.recTimer);state.recTimer=null;if(state.db&&state.db.pausar)state.db.pausar("pessoas",false);aplicarRecords();if(state.db&&state.db.recarregar)state.db.recarregar("pessoas")}
