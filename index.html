@@ -839,7 +839,7 @@ function renderChipsEmp(){const box=$("#chipsEmprego");box.innerHTML="";
 const OCUP_CURTO={"Empregado(a) com carteira":"Com carteira","Servidor(a) público(a)":"Servidor público","Autônomo(a)":"Autônomo","Trabalhador(a) rural":"Trabalhador rural","Trabalho informal / bico":"Informal / bico","Desempregado(a)":"Desempregado","Aposentado(a) / Pensionista":"Aposentado / pensionista","Do lar":"Do lar","Estudante":"Estudante","Não se aplica (criança)":"Crianças","Não informado":"Não informado","Pessoas com 60 anos ou mais":"60 anos ou mais"};
 const rotTab=(l,c)=>c&&c!==l?`<span class="l-long">${esc(l)}</span><span class="l-short">${esc(c)}</span>`:esc(l);
 function renderTabOcup(R,sel){const tb=$("#tbOcup");if(!tb)return;
-  const N=x=>Math.round(x||0).toLocaleString("pt-BR"),cols=[...BAIRROS.map(b=>({l:b,a:R&&R.bairros?R.bairros[b]:null})),{l:"Município",a:R?R.todos:null,m:1}];
+  const N=x=>Math.round(x||0).toLocaleString("pt-BR"),cols=BAIRROS.map(b=>({l:b,a:R&&R.bairros?R.bairros[b]:null}));
   const v=(a,o)=>a&&a.trab?a.trab[o]||0:0,ni=a=>a?Math.max(0,(a.total||0)-OCUP.reduce((s,o)=>s+v(a,o),0)):0;
   const cl=c=>[c.m?"m":"",sel&&c.l===sel?"sel":""].join(" ").trim();
   const td=(c,x)=>`<td class="${cl(c)}">${N(x)}</td>`;
@@ -872,10 +872,10 @@ function renderEmprego(){
   const C=["--c1","--c2","--c3","--c4","--c5","--c6"].map(css),OK=css("--ok"),WN=css("--warn"),BD=css("--bad"),mu=css("--muted"),ln=css("--line"),sel=state.filter;
   const cor=v=>v==null?ln:v>=15?BD:v>=8?WN:OK;
   const pv=v=>(+v).toLocaleString("pt-BR",{maximumFractionDigits:1})+"%",pctX={min:0,ticks:{color:mu,callback:pv},grid:{color:ln}},pctY={beginAtZero:true,ticks:{color:mu,callback:pv},grid:{color:ln}},semGrade={ticks:{color:mu,autoSkip:false},grid:{display:false}};
-  const lab=[...BAIRROS,"Município"],ags=[...BAIRROS.map(b=>R&&R.bairros?R.bairros[b]:null),R?R.todos:null],tv=ags.map(x=>x&&x.trab?tx(x):null);
+  const lab=[...BAIRROS],ags=BAIRROS.map(b=>R&&R.bairros?R.bairros[b]:null),tv=ags.map(x=>x&&x.trab?tx(x):null);
   mkChart("chDesBairro",{type:"bar",data:{labels:lab,datasets:[{label:"Taxa de desemprego",data:tv.map(r1),
       backgroundColor:tv.map((v,i)=>{const c=cor(v);return sel&&lab[i]!==sel&&i<BAIRROS.length?c+"55":c}),
-      borderColor:tv.map((v,i)=>i===lab.length-1?css("--fg"):"transparent"),borderWidth:tv.map((v,i)=>i===lab.length-1?1.5:0),borderRadius:4}]},
+      borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const x=ags[c.dataIndex];return x&&x.forca?`${PD(tx(x))} · ${N(x.desemp)} de ${N(x.forca)} pessoas`:"Sem dados"}}}},scales:{x:pctX,y:semGrade}})});
   const pal=[C[0],css("--b4"),C[2],C[5],C[1],C[4],C[3],css("--b2"),css("--b3"),mu],oc=OCUP.filter(o=>z.trab[o]);
   mkChart("chOcup",{type:"doughnut",data:{labels:oc,datasets:[{data:oc.map(o=>z.trab[o]),backgroundColor:oc.map(o=>pal[OCUP.indexOf(o)]),borderColor:css("--surface"),borderWidth:2}]},
