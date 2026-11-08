@@ -446,6 +446,8 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
   body.tv .kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
   body.tv .tabs{display:none}
 }
+/* TV bem baixa (ex.: 960x540): sem a frase explicativa dos gráficos do painel, para os nomes dos bairros caberem */
+@media (max-height:560px){body.tv #v-painel .card .cap{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -1057,7 +1059,7 @@ function renderCharts(a){
      backgroundColor:vals.map((v,i)=>{const c=cor(v);return sel&&lab[i]!==sel&&i<BAIRROS.length?c+"55":c}),
      borderRadius:4}]},
      options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=vals[c.dataIndex];return v==null?"Sem cadastros":`IVS ${v} · vulnerabilidade ${ivsNivel(v).t}`}}}},
-       scales:{x:{min:0,max:100,ticks:{color:css("--muted"),stepSize:20},grid:{color:css("--line")}},y:{ticks:{color:css("--muted"),font:{size:11},autoSkip:false},grid:{display:false}}}})})}
+       scales:{x:{min:0,max:100,ticks:{color:css("--muted"),stepSize:20},grid:{color:css("--line")}},y:{ticks:{color:css("--muted"),font:c=>({size:Math.max(7,Math.min(11,Math.floor((c.chart.height-28)/Math.max(1,lab.length)*.7)))}),autoSkip:false},grid:{display:false}}}})})}
   const bk=Object.keys(z.ben);
   mkChart("chBen",{type:"bar",data:{labels:bk,datasets:[{label:"Pessoas",data:bk.map(k=>z.ben[k]),backgroundColor:C[1],borderRadius:4}]},
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{color:css("--muted"),precision:0},grid:{color:css("--line")}},y:{ticks:{color:css("--muted"),font:{size:11}},grid:{display:false}}}})});
