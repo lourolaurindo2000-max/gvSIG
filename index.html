@@ -1315,8 +1315,8 @@ async function buildXLSX(scope,nominal){
     ["Extrema pobreza",fr(A.renda[0],t),XF.pct],["Renda per capita média",A.rendaN?A.renda_media:null,XF.brl],["Crianças até 14 anos",A.criancas||0,XF.int],["Idosos 60+",A.idosos||0,XF.int]],[[1,1],[2,4],[5,7],[8,9]]);
   section(ws,N,"Indicadores por bairro");
   const ind=(nome,a)=>{const n=a.total;return [nome,n,a.familias,fr(a.bf,n),fr(a.semEsc,n),fr(a.renda[0],n),n?1-a.inf.esgoto/n:null,a.rendaN?a.renda_media:null,vuln(a)]};
-  const linhas=bairros.map(b=>ind(b,R.bairros[b]||aggregate([])));if(!scope)linhas.push(ind("Total do município",R.todos));
-  const hb=table(ws,[["Bairro"],["Pessoas",XF.int],["Famílias",XF.int],["Bolsa Família",XF.pct],["Sem escolaridade",XF.pct],["Extrema pobreza",XF.pct],["Sem esgoto",XF.pct],["Renda per capita",XF.brl],["Índice de vulnerabilidade",XF.idx]],linhas,{total:!scope});
+  const linhas=bairros.map(b=>ind(b,R.bairros[b]||aggregate([])));/* só bairros: o município não é bairro */
+  const hb=table(ws,[["Bairro"],["Pessoas",XF.int],["Famílias",XF.int],["Bolsa Família",XF.pct],["Sem escolaridade",XF.pct],["Extrema pobreza",XF.pct],["Sem esgoto",XF.pct],["Renda per capita",XF.brl],["Índice de vulnerabilidade",XF.idx]],linhas);
   linhas.forEach((l,k)=>{const v=l[8];if(v==null)return;const [bg,fg]=v>=55?XL.alta:v>=35?XL.media:XL.baixa;const c=ws.getCell(hb+1+k,9);c.fill=fill(bg);c.font=font({bold:true,color:{argb:fg}});c.alignment={vertical:"middle",horizontal:"center"}});
   note(ws,N,"Índice de vulnerabilidade de 0 a 100 (combina Bolsa Família, escolaridade, renda e saneamento): verde abaixo de 35 · âmbar de 35 a 54 · vermelho de 55 em diante. Extrema pobreza = renda per capita de até R$ 218.");
   const dist=(titulo,cab,colN,itens,base,cor)=>{section(ws,N,titulo);
