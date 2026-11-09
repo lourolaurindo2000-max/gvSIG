@@ -40,6 +40,12 @@ O acesso é aberto, sem login: qualquer pessoa com o endereço do site pode cada
 - Precisam de internet: carregar/remover exemplos e o primeiro acesso em um aparelho novo.
 - No Chrome/Edge, o ícone de instalar na barra de endereço cria um atalho do SIG na área de trabalho.
 
+## Smart TV (qualquer marca)
+
+- A TV é reconhecida sozinha (Samsung, LG, Hisense/VIDAA, Philips, Sony, TCL, Xiaomi, Android TV, Fire TV, Roku…). Se alguma não for, abra o endereço com `#smarttv` no fim, uma vez, no navegador da TV (`#naotv` desfaz).
+- TVs com navegador antigo não entendem o JavaScript moderno: o build (`npm run build`) gera em `public/legacy/` versões ES5 do sistema, do Chart.js e do Supabase, além de polyfills (core-js). O `index.html` só as carrega quando o navegador não consegue rodar as versões modernas.
+- A TV relê o comando do notebook a cada 5 s, além do tempo real.
+
 ## Publicar
 
 1. Envie todos estes arquivos para o repositório do GitHub ligado ao Vercel (sem `node_modules/` e sem `public/`).

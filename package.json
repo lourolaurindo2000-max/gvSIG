@@ -9,7 +9,11 @@
     "build": "node scripts/copiar-supabase.js"
   },
   "dependencies": {
+    "@babel/core": "7.26.0",
+    "@babel/preset-env": "7.26.0",
     "@supabase/ssr": "0.7.0",
-    "@supabase/supabase-js": "2.57.4"
+    "@supabase/supabase-js": "2.57.4",
+    "chart.js": "4.4.1",
+    "core-js-bundle": "3.39.0"
   }
 }

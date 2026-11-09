@@ -13,10 +13,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!-- Smart TVs com navegador antigo (qualquer marca): completa o que falta e usa as versões "legacy/" (ES5), geradas no build -->
+<script>(function(){var w=window,P=w.Promise;if(!P||!P.prototype.finally||!Object.fromEntries||!Object.entries||!Object.assign||!String.prototype.padStart||!Array.prototype.includes||!Array.prototype.find||!w.Symbol||!w.Map||!w.Set||!w.URLSearchParams)document.write('<script src="legacy/polyfill.js"><\/script>')})()</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>window.Chart||document.write('<script src="legacy/chart.js?v=4.4.1"><\/script>')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <!-- Biblioteca oficial do Supabase (@supabase/supabase-js 2.57.4), instalada pelo npm; se faltar, usa a CDN -->
 <script src="vendor/supabase.js"></script>
+<script>window.supabase||document.write('<script src="legacy/supabase.js?v=2.57.4"><\/script>')</script>
 <script>window.supabase||document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"><\/script>')</script>
 <style>
 /* Layout: faixa institucional fixa no topo, abas, painel em grade de cartões; mapa esquemático dos 4 bairros ao lado dos indicadores. */
@@ -717,6 +721,7 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
    A chave abaixo é a "publishable key": é pública por natureza e pode
    ficar no site. Nunca coloque aqui a "secret key".
    ===================================================================== */
+window.__SIG_OK=1;/* o navegador entendeu este script; senão, carrega legacy/app.js */
 const SUPABASE_URL = "https://elqxgsfgovuktwgoituv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xICmD_HgzY44DXZcPIY2Vg_c_rF5xYi";
 (function(){
@@ -1586,10 +1591,15 @@ function paintThemeBtn(){const b=$("#themeBtn");if(!b)return;const dark=effTheme
 try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",paintThemeBtn)}catch(e){}
 
 /* modo TV */
-const TV_UA=/smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|android tv|googletv|crkey|roku|vidaa|viera|philipstv|nettv|aft[bmst]/i;
+/* Smart TVs de qualquer marca: Samsung (Tizen/Orsay), LG (webOS/NetCast), Hisense (VIDAA), Philips, Sony, Panasonic, TCL, Xiaomi,
+   Toshiba, Sharp, Vizio, AOC, Semp, Multilaser, Fire TV, Roku, Chromecast, Android TV/Google TV… */
+const TV_UA=/smart-?tv|smarttv|tizen|maple|web0s|webos|netcast|lg browser|hbbtv|ce-?html|bravia|android ?tv|google ?tv|googletv|crkey|chromecast|roku|vidaa|hisense|hismart|viera|panasonic|philipstv|nettv|saphi|tpvision|aquos|toshiba|vizio|smartcast|opera tv|opr\/.*tv|omi\/|espial|tcl|mitv|mibox|aft[a-z]|firetv|dtv|tv|stb|set-?top|freebox|sonydtv|kodi|zeasn|whaletv|coship|skyworth|konka|haier|metz|loewe|grundig|vestel|sharp|semp|multilaser|aoc ?tv|qtv|playstation|xbox|nintendo/i;
 /* #smarttv marca este aparelho como Smart TV (para TVs não reconhecidas); #naotv desfaz */
 (function(){const h=location.hash;if(h==="#smarttv"||h==="#naotv"){ls("sig_smarttv",h==="#smarttv"?"1":"0");if(h==="#naotv")ls("sig_tv","0");try{history.replaceState(null,"",h==="#smarttv"?"#tv":location.pathname+location.search)}catch(e){}}})();
-const isTvDevice=()=>{try{if(ls("sig_smarttv")==="1")return true;return TV_UA.test(navigator.userAgent||"")}catch(e){return false}};
+const isTvDevice=()=>{try{const m=ls("sig_smarttv");if(m==="1")return true;if(m==="0")return false;const ua=navigator.userAgent||"";if(TV_UA.test(ua))return true;
+  /* Android sem tela de toque e sem "Mobile" = TV/TV box (tablets e celulares têm toque) */
+  if(/android/i.test(ua)&&!/mobile/i.test(ua)&&!(navigator.maxTouchPoints>0)&&!("ontouchstart" in window))return true;
+  return false}catch(e){return false}};
 if(isTvDevice()){document.documentElement.classList.add("tv-device");if(state.me)logout(true)}
 /* aparelhos Android (celular e tablet) e qualquer celular (iPhone etc.) ou iPad não têm acesso ao modo administrativo */
 const isAndroid=()=>{try{const d=navigator.userAgentData,ua=navigator.userAgent||"";if(d&&(d.mobile||/android/i.test(d.platform||"")))return true;
@@ -1764,7 +1774,7 @@ function criarBancoSupabase(sb){
     c.subscribe(st=>{if(morto)return;if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){morto=true;if(avisos===c)avisos=null;try{sb.removeChannel(c)}catch(e){}setTimeout(ligarAvisos,semInternet()?15000:5000)}})}
   function avisar(t){try{ligarAvisos();const r=avisos.send({type:"broadcast",event:"mudou",payload:{tabela:t}});if(r&&r.catch)r.catch(()=>{})}catch(e){}}
   function ouvir(tabela,recarregar){ligarTempoReal(tabela);ligarAvisos();let t=null;const f=()=>{if(pausa[tabela])return;clearTimeout(t);t=setTimeout(recarregar,250)};ouvintes[tabela].add(f);
-    const iv=setInterval(()=>{if(!pausa[tabela])recarregar()},30000);// reserva, caso o tempo real caia
+    const iv=setInterval(()=>{if(!pausa[tabela])recarregar()},isTvDevice()?5000:30000);// reserva, caso o tempo real caia (na Smart TV, a cada 5 s: TVs antigas às vezes não mantêm o tempo real)
     return()=>{ouvintes[tabela].delete(f);clearInterval(iv);clearTimeout(t)}}
   function linhaPessoa(id,v){return {id,nome:v.nome||null,bairro:v.bairro||null,dados:v}}
   // cadastros e auditoria só são lidos do servidor com login; sem a sessão, usa a cópia deste computador
@@ -1966,6 +1976,7 @@ if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))window.addE
 document.querySelectorAll(".yr").forEach(e=>e.textContent=new Date().getFullYear());
 })();
 </script>
+<script>window.__SIG_OK||document.write('<script src="legacy/app.js?v=__VERSAO__"><\/script>')</script>
 
 </body>
 </html>
