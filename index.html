@@ -6,6 +6,8 @@
 <meta name="description" content="SIG - Sistema Integrado de Gestão · Almadina-BA · Mapeamento social dos bairros">
 <meta name="theme-color" content="#14513f">
 <link rel="icon" href="SIG.ico">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>SIG Almadina</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1215,7 +1217,7 @@ function pedirSenha(next){
     if(!u||!pw){msg.textContent="Informe o usuário e a senha.";return}
     if(Date.now()<bloqLoginAte){msg.textContent="Muitas tentativas erradas. Aguarde 30 segundos e tente de novo.";return}
     btn.disabled=true;btn.textContent="Entrando…";let ok=false;
-    try{ok=USER_RE.test(u)&&await autenticar(u,pw)}catch(err){console.error(err);msg.textContent="Não foi possível verificar a senha. Verifique a internet.";btn.disabled=false;btn.textContent="Entrar";return}
+    try{ok=USER_RE.test(u)&&await autenticar(u,pw)}catch(err){console.error(err);msg.textContent=err&&err.offline||"Não foi possível verificar a senha. Verifique a internet.";btn.disabled=false;btn.textContent="Entrar";return}
     if(!ok){falhasLogin++;if(falhasLogin>=5){falhasLogin=0;bloqLoginAte=Date.now()+30000}msg.textContent="Usuário ou senha incorretos.";$("#lPw").value="";$("#lPw").focus();btn.disabled=false;btn.textContent="Entrar";return}
     falhasLogin=0;adminEntrou(next)}}
 async function openLogin(next){
@@ -1708,58 +1710,152 @@ function removeBairro(it){
   confirmBox(`Remover ${it.nome}?`,"O bairro sai do mapa, dos gráficos e da lista de bairros do cadastro.","Remover",async()=>{try{await saveBairros(state.bairrosCfg.filter(b=>b.id!==it.id));toast("Bairro removido");logAudit("bairro","Removeu bairro",it.nome,"")}catch(err){toast(errMsg(err))}});
 }
 
+/* ===== Funcionamento sem internet =====
+   O SIG guarda neste computador (IndexedDB) uma cópia dos dados que leu do Supabase.
+   Sem internet, mostra essa cópia; o que for cadastrado, editado ou excluído entra numa
+   fila e é enviado sozinho, na ordem, assim que a internet voltar. */
+const OFF={idb:null,pessoas:null,cfg:{},auditoria:null,fila:[]};
+function idbAbrir(){return new Promise(res=>{try{const r=indexedDB.open("sig-offline",1);r.onupgradeneeded=()=>{try{r.result.createObjectStore("kv")}catch(e){}};r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}})}
+function idbGet(k){return new Promise(res=>{if(!OFF.idb)return res(undefined);try{const q=OFF.idb.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(undefined)}catch(e){res(undefined)}})}
+function idbPut(k,v){return new Promise(res=>{if(!OFF.idb)return res();try{const tx=OFF.idb.transaction("kv","readwrite");tx.objectStore("kv").put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>res();tx.onabort=()=>res()}catch(e){res()}})}
+const offTimers={};
+function offGuardar(k,ja){clearTimeout(offTimers[k]);if(ja)return idbPut(k,OFF[k]);offTimers[k]=setTimeout(()=>idbPut(k,OFF[k]),400)}
+async function offCarregar(){OFF.idb=await idbAbrir();const [p,c,a,f]=await Promise.all(["pessoas","cfg","auditoria","fila"].map(idbGet));
+  OFF.pessoas=p&&typeof p==="object"?p:null;OFF.cfg=c&&typeof c==="object"?c:{};OFF.auditoria=Array.isArray(a)?a:null;OFF.fila=Array.isArray(f)?f:[]}
+function semInternet(){return navigator.onLine===false}
+function ehErroRede(e){if(!e)return false;if(semInternet())return true;const m=String(e.message||e)+" "+String(e.details||"");
+  return e.name==="AuthRetryableFetchError"||e.status===0||/failed to fetch|networkerror|network request failed|load failed|fetch failed|err_internet|err_network|err_name_not_resolved|timed? ?out|aborted/i.test(m)}
+
 /* ===== Banco de dados Supabase (tabelas: pessoas, configuracoes, auditoria) =====
    Camada que oferece ao SIG as mesmas operações de antes (doc / collection /
    set / update / delete / get / add / onSnapshot), agora gravando no Supabase,
-   com atualização em tempo real entre todos os aparelhos. */
+   com atualização em tempo real entre todos os aparelhos e cópia local para usar sem internet. */
 function criarBancoSupabase(sb){
   const TAB={pessoas:"pessoas",auditoria:"auditoria"};
   const ehConfig=c=>c==="publico"||c==="config";
-  const erro=e=>{const x=new Error((e&&e.message)||"erro");x.code=(e&&e.code==="PGRST301")?"permission-denied":(e&&/permission|row-level/i.test(e.message||"")?"permission-denied":"unavailable");return x};
-  const snapDoc=(id,dados)=>({id,exists:dados!=null,data:()=>dados==null?undefined:JSON.parse(JSON.stringify(dados)),metadata:{fromCache:false,hasPendingWrites:false}});
+  const erro=e=>{const x=new Error((e&&e.message)||"erro");x.code=(e&&e.code==="PGRST301")?"permission-denied":(e&&/permission|row-level/i.test(e.message||"")?"permission-denied":"unavailable");x.rede=ehErroRede(e);return x};
+  const snapDoc=(id,dados,cache)=>({id,exists:dados!=null,data:()=>dados==null?undefined:JSON.parse(JSON.stringify(dados)),metadata:{fromCache:!!cache,hasPendingWrites:!!OFF.fila.length}});
+  // situação da conexão, mostrada na barra de status
+  const est={online:!semInternet(),sessao:false,enviando:false,semLogin:false};
+  let aoMudar=()=>{};
+  const avisarEstado=()=>{try{aoMudar(info())}catch(e){}};
+  const info=()=>({online:est.online,pendentes:OFF.fila.length,cadastros:OFF.fila.filter(o=>o.tabela==="pessoas").length,enviando:est.enviando,semLogin:est.semLogin,sessao:est.sessao});
+  const marcarOnline=v=>{if(est.online!==v){est.online=v;avisarEstado()}};
+  // a sessão do Supabase decide se dá para ler/gravar cadastros no servidor
+  const mudarSessao=v=>{v=!!v;const antes=est.sessao;est.sessao=v;if(v){est.semLogin=false;setTimeout(enviarFila,0)}if(v&&!antes){avisarLocal("pessoas");avisarLocal("auditoria")}avisarEstado()};
+  try{sb.auth.onAuthStateChange((ev,s)=>{if(ev==="SIGNED_OUT"||s)mudarSessao(s)})}catch(e){}
   // ouvintes em tempo real: uma inscrição por tabela, que avisa todos os interessados
   const ouvintes={pessoas:new Set(),configuracoes:new Set(),auditoria:new Set()};
   const pausa={};// pausa as releituras de uma tabela durante gravações em massa
+  const avisarLocal=t=>{for(const f of (ouvintes[t]||[]))f()};
   // um canal de tempo real por tabela: quem não tem login (a Smart TV) só assina as tabelas que pode ler,
   // assim uma tabela bloqueada não derruba as outras
   const canais={};
   function ligarTempoReal(t){if(canais[t])return;let morto=false;
     const c=sb.channel("sig-"+t);canais[t]=c;
     c.on("postgres_changes",{event:"*",schema:"public",table:t},()=>{for(const f of ouvintes[t])f()});
-    c.subscribe(st=>{if(morto)return;if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){morto=true;if(canais[t]===c)canais[t]=null;try{sb.removeChannel(c)}catch(e){}setTimeout(()=>ligarTempoReal(t),5000)}})}
+    c.subscribe(st=>{if(morto)return;if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){morto=true;if(canais[t]===c)canais[t]=null;try{sb.removeChannel(c)}catch(e){}setTimeout(()=>ligarTempoReal(t),semInternet()?15000:5000)}})}
   // canal de avisos: funciona também para quem não tem login (a Smart TV).
   // O aviso só pede para reler; os dados sempre vêm do banco, com as regras de acesso.
   let avisos=null;
   function ligarAvisos(){if(avisos)return;let morto=false;
     const c=sb.channel("sig-avisos",{config:{broadcast:{self:false,ack:false}}});avisos=c;
     c.on("broadcast",{event:"mudou"},m=>{const t=m&&m.payload&&m.payload.tabela;if(ouvintes[t])for(const f of ouvintes[t])f()});
-    c.subscribe(st=>{if(morto)return;if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){morto=true;if(avisos===c)avisos=null;try{sb.removeChannel(c)}catch(e){}setTimeout(ligarAvisos,5000)}})}
+    c.subscribe(st=>{if(morto)return;if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){morto=true;if(avisos===c)avisos=null;try{sb.removeChannel(c)}catch(e){}setTimeout(ligarAvisos,semInternet()?15000:5000)}})}
   function avisar(t){try{ligarAvisos();const r=avisos.send({type:"broadcast",event:"mudou",payload:{tabela:t}});if(r&&r.catch)r.catch(()=>{})}catch(e){}}
   function ouvir(tabela,recarregar){ligarTempoReal(tabela);ligarAvisos();let t=null;const f=()=>{if(pausa[tabela])return;clearTimeout(t);t=setTimeout(recarregar,250)};ouvintes[tabela].add(f);
     const iv=setInterval(()=>{if(!pausa[tabela])recarregar()},30000);// reserva, caso o tempo real caia
     return()=>{ouvintes[tabela].delete(f);clearInterval(iv);clearTimeout(t)}}
   function linhaPessoa(id,v){return {id,nome:v.nome||null,bairro:v.bairro||null,dados:v}}
+  // cadastros e auditoria só são lidos do servidor com login; sem a sessão, usa a cópia deste computador
+  const podeLerServidor=tabela=>!semInternet()&&(tabela==="configuracoes"||est.sessao);
+
+  /* ---- cópia local ---- */
+  function aplicarLocal(op){
+    if(op.tabela==="configuracoes"){OFF.cfg[op.chave]=op.tipo==="delete"?null:op.linha.dados;offGuardar("cfg");return}
+    if(op.tabela==="pessoas"){if(!OFF.pessoas)OFF.pessoas={};if(op.tipo==="delete")delete OFF.pessoas[op.id];else OFF.pessoas[op.id]=op.linha.dados;offGuardar("pessoas");return}
+    if(op.tabela==="auditoria"&&op.tipo==="insert"){if(!OFF.auditoria)OFF.auditoria=[];OFF.auditoria.unshift({id:op.linha.id,quando:op.linha.quando,dados:op.linha.dados});OFF.auditoria.length=Math.min(OFF.auditoria.length,500);offGuardar("auditoria")}}
+  /* ---- fila de envio ---- */
+  async function enfileirar(op){const k=op.tabela+"/"+(op.chave||op.id);
+    if(op.tipo!=="insert")OFF.fila=OFF.fila.filter(o=>o.tipo==="insert"||(o.tabela+"/"+(o.chave||o.id))!==k);// só vale a última alteração de cada cadastro
+    OFF.fila.push(op);await offGuardar("fila",true);avisarEstado()}
+  async function executar(op){
+    if(op.tipo==="delete")return op.chave?sb.from(op.tabela).delete().eq("chave",op.chave):sb.from(op.tabela).delete().eq("id",op.id);
+    if(op.tipo==="insert")return sb.from(op.tabela).insert(op.linha);
+    return sb.from(op.tabela).upsert(op.linha)}
+  let aoSincronizar=()=>{};
+  async function enviarFila(){
+    if(est.enviando||!OFF.fila.length||semInternet())return;
+    est.enviando=true;avisarEstado();const mexidas=new Set();let parou=false;
+    try{while(OFF.fila.length){const op=OFF.fila[0];
+        if(op.tabela!=="configuracoes"&&!est.sessao){est.semLogin=true;parou=true;break}
+        let r;try{r=await executar(op)}catch(e){r={error:e}}
+        const e=r&&r.error;
+        if(e&&!(op.tipo==="insert"&&e.code==="23505")){// 23505 = já enviado antes (a resposta tinha se perdido)
+          if(ehErroRede(e)){marcarOnline(false);parou=true;break}
+          if(erro(e).code==="permission-denied"){est.semLogin=true;parou=true;break}
+          console.warn("SIG: alteração recusada pelo servidor e descartada",op,e)}
+        OFF.fila.shift();mexidas.add(op.tabela);await offGuardar("fila",true);avisarEstado()}
+      if(!parou){est.semLogin=false;marcarOnline(true)}}
+    finally{est.enviando=false;avisarEstado()}
+    if(mexidas.size){for(const t of mexidas){avisar(t);avisarLocal(t)}if(!OFF.fila.length)try{aoSincronizar()}catch(e){}}}
+  // grava no servidor; sem internet (ou com alterações ainda na fila), guarda para enviar depois
+  async function gravar(op){aplicarLocal(op);
+    const precisaSessao=op.tabela!=="configuracoes";
+    if(!OFF.fila.length&&!semInternet()&&(!precisaSessao||est.sessao)){
+      let r;try{r=await executar(op)}catch(e){r={error:e}}const e=r&&r.error;
+      if(!e||(op.tipo==="insert"&&e.code==="23505")){marcarOnline(true);avisar(op.tabela);return}
+      if(!ehErroRede(e))throw erro(e);
+      marcarOnline(false)}
+    if(precisaSessao&&!est.sessao&&!semInternet()&&!state.authOffline){const x=new Error("Entre no modo administrativo para gravar");x.code="permission-denied";throw x}
+    await enfileirar(op);avisarLocal(op.tabela);setTimeout(enviarFila,0)}
+
   function docRef(col,id){
     const cfg=ehConfig(col),chave=col+"/"+id,tabela=cfg?"configuracoes":TAB[col];
     if(!tabela)throw new Error("Coleção desconhecida: "+col);
-    const ler=async()=>{const q=cfg?sb.from(tabela).select("dados").eq("chave",chave).maybeSingle():sb.from(tabela).select("dados").eq("id",id).maybeSingle();
-      const {data,error}=await q;if(error)throw erro(error);return snapDoc(id,data?data.dados:null)};
+    const daCopia=()=>cfg?snapDoc(id,OFF.cfg[chave],true):tabela==="pessoas"?snapDoc(id,OFF.pessoas&&OFF.pessoas[id],true):null;
+    const temCopia=()=>cfg?(chave in OFF.cfg):tabela==="pessoas"&&!!OFF.pessoas;
+    const ler=async()=>{
+      if(OFF.fila.length)await enviarFila();
+      if(OFF.fila.length&&temCopia())return daCopia();
+      if(!podeLerServidor(tabela)){if(temCopia())return daCopia();if(semInternet()){const x=new Error("Sem internet");x.code="unavailable";x.rede=true;throw x}}
+      const q=cfg?sb.from(tabela).select("dados").eq("chave",chave).maybeSingle():sb.from(tabela).select("dados").eq("id",id).maybeSingle();
+      let r;try{r=await q}catch(e){r={error:e}}
+      if(r.error){const x=erro(r.error);if(x.rede&&temCopia()){marcarOnline(false);return daCopia()}if(x.rede)marcarOnline(false);throw x}
+      marcarOnline(true);const d=r.data?r.data.dados:null;
+      if(cfg){OFF.cfg[chave]=d;offGuardar("cfg")}
+      return snapDoc(id,d)};
+    const linhaDe=v=>cfg?{chave,dados:v}:tabela==="pessoas"?linhaPessoa(id,v):{id,quando:v.quando||new Date().toISOString(),dados:v};
     return {id,path:chave,
       get:ler,
-      set:async v=>{const linha=cfg?{chave,dados:v}:tabela==="pessoas"?linhaPessoa(id,v):{id,quando:v.quando||new Date().toISOString(),dados:v};
-        const {error}=tabela==="auditoria"?await sb.from(tabela).insert(linha):await sb.from(tabela).upsert(linha);if(error)throw erro(error);avisar(tabela)},
-      update:async v=>{const s=await ler();if(!s.exists){const x=new Error("não existe");x.code="not-found";throw x}const novo=Object.assign(s.data(),v);
-        const linha=cfg?{chave,dados:novo}:tabela==="pessoas"?linhaPessoa(id,novo):{id,dados:novo};const {error}=await sb.from(tabela).upsert(linha);if(error)throw erro(error);avisar(tabela)},
-      delete:async()=>{const {error}=cfg?await sb.from(tabela).delete().eq("chave",chave):await sb.from(tabela).delete().eq("id",id);if(error)throw erro(error);avisar(tabela)},
+      set:async v=>{v=JSON.parse(JSON.stringify(v));await gravar({tabela,tipo:tabela==="auditoria"?"insert":"upsert",chave:cfg?chave:undefined,id:cfg?undefined:id,linha:linhaDe(v)})},
+      update:async v=>{const s=await ler();if(!s.exists){const x=new Error("não existe");x.code="not-found";throw x}const novo=Object.assign(s.data(),JSON.parse(JSON.stringify(v)));
+        await gravar({tabela,tipo:"upsert",chave:cfg?chave:undefined,id:cfg?undefined:id,linha:cfg?{chave,dados:novo}:tabela==="pessoas"?linhaPessoa(id,novo):{id,dados:novo}})},
+      delete:async()=>{await gravar({tabela,tipo:"delete",chave:cfg?chave:undefined,id:cfg?undefined:id})},
       onSnapshot:(next,onErr)=>{let vivo=true,seq=0;const carregar=()=>{const n=++seq;return ler().then(s=>{if(vivo&&n===seq)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr&&e.code==="permission-denied")onErr(e)})};
         carregar();const parar=ouvir(tabela,carregar);return()=>{vivo=false;parar()}}}}
   function colRef(col,ordem,limite){
     const tabela=TAB[col];if(!tabela)throw new Error("Coleção desconhecida: "+col);
     const novoId=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/-/g,"").slice(0,20);
-    const listar=async()=>{let q=sb.from(tabela).select(tabela==="pessoas"?"id,dados":"id,quando,dados");
+    const resp=(docs,cache)=>({docs,size:docs.length,empty:!docs.length,metadata:{fromCache:!!cache,hasPendingWrites:!!OFF.fila.length},docChanges:()=>[]});
+    const temCopia=()=>tabela==="pessoas"?!!OFF.pessoas:!!OFF.auditoria;
+    const daCopia=()=>{if(tabela==="pessoas")return resp(Object.keys(OFF.pessoas||{}).map(id=>snapDoc(id,OFF.pessoas[id],true)),true);
+      let l=(OFF.auditoria||[]).slice();if(ordem&&ordem[0]==="quando")l.sort((a,b)=>String(a.quando).localeCompare(String(b.quando))*(ordem[1]==="desc"?-1:1));if(limite)l=l.slice(0,limite);
+      return resp(l.map(r=>snapDoc(r.id,r.dados,true)),true)};
+    const listar=async()=>{
+      if(OFF.fila.length)await enviarFila();
+      if(OFF.fila.length&&temCopia())return daCopia();
+      if(!podeLerServidor(tabela)){if(temCopia())return daCopia();if(semInternet()){const x=new Error("Sem internet");x.code="unavailable";x.rede=true;throw x}}
+      let q=sb.from(tabela).select(tabela==="pessoas"?"id,dados":"id,quando,dados");
       if(ordem)q=q.order(ordem[0]==="quando"&&tabela==="auditoria"?"quando":"atualizado_em",{ascending:ordem[1]!=="desc"});q=q.order("id",{ascending:true});
-      const max=limite||100000,data=[];for(let ini=0;ini<max;ini+=1000){const fim=Math.min(max,ini+1000)-1;const r=await q.range(ini,fim);if(r.error)throw erro(r.error);data.push(...(r.data||[]));if(!r.data||r.data.length<fim-ini+1)break}
-      const docs=data.map(r=>snapDoc(r.id,r.dados));return {docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false},docChanges:()=>[]}};
+      const max=limite||100000,data=[];
+      try{for(let ini=0;ini<max;ini+=1000){const fim=Math.min(max,ini+1000)-1;let r;try{r=await q.range(ini,fim)}catch(e){r={error:e}}if(r.error)throw erro(r.error);data.push(...(r.data||[]));if(!r.data||r.data.length<fim-ini+1)break}}
+      catch(x){if(x.rede&&temCopia()){marcarOnline(false);return daCopia()}if(x.rede)marcarOnline(false);throw x}
+      marcarOnline(true);
+      if(est.sessao&&!OFF.fila.length){// atualiza a cópia deste computador
+        if(tabela==="pessoas"){const m={};for(const r of data)m[r.id]=r.dados;OFF.pessoas=m;offGuardar("pessoas")}
+        else{OFF.auditoria=data.slice(0,500);offGuardar("auditoria")}}
+      return resp(data.map(r=>snapDoc(r.id,r.dados)))};
     return {path:col,
       doc:id=>docRef(col,id||novoId()),
       add:async v=>{const r=docRef(col,novoId());await r.set(v);return r},
@@ -1768,23 +1864,47 @@ function criarBancoSupabase(sb){
       get:listar,
       onSnapshot:(next,onErr)=>{let vivo=true,seq=0;const carregar=()=>{const n=++seq;return listar().then(s=>{if(vivo&&n===seq)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr)onErr(e)})};
         carregar();const parar=ouvir(tabela,carregar);return()=>{vivo=false;parar()}}}}
+  const precisaInternet=()=>{if(semInternet()||OFF.fila.length){const x=new Error(semInternet()?"Sem internet: esta ação precisa de conexão":"Aguarde o envio das alterações pendentes");x.code="unavailable";throw x}};
+  // quando a internet volta: envia a fila e relê tudo
+  window.addEventListener("online",()=>{marcarOnline(true);setTimeout(()=>{enviarFila().finally(()=>{for(const t in ouvintes)avisarLocal(t)})},1500)});
+  window.addEventListener("offline",()=>marcarOnline(false));
+  setInterval(()=>{if(OFF.fila.length)enviarFila()},20000);
   return {doc:p=>{const i=p.indexOf("/");return docRef(p.slice(0,i),p.slice(i+1))},collection:c=>colRef(c),
     // gravação em lote: uma requisição para até 500 pessoas
-    salvarVarios:async(col,lista)=>{const t=TAB[col];if(!t)throw new Error("Coleção desconhecida: "+col);
-      const {error}=await sb.from(t).upsert(lista.map(x=>t==="pessoas"?linhaPessoa(x.id,x.dados):{id:x.id,dados:x.dados}));if(error)throw erro(error);avisar(t)},
-    apagarExemplos:async col=>{const {error}=await sb.from(TAB[col]).delete().eq("dados->>exemplo","true");if(error)throw erro(error);avisar(TAB[col])},
-    contar:async col=>{const {count,error}=await sb.from(TAB[col]).select("id",{count:"exact",head:true});if(error)throw erro(error);return count||0},
+    salvarVarios:async(col,lista)=>{precisaInternet();const t=TAB[col];if(!t)throw new Error("Coleção desconhecida: "+col);
+      const {error}=await sb.from(t).upsert(lista.map(x=>t==="pessoas"?linhaPessoa(x.id,x.dados):{id:x.id,dados:x.dados}));if(error)throw erro(error);
+      if(t==="pessoas"){if(!OFF.pessoas)OFF.pessoas={};for(const x of lista)OFF.pessoas[x.id]=x.dados;offGuardar("pessoas")}avisar(t)},
+    apagarExemplos:async col=>{precisaInternet();const {error}=await sb.from(TAB[col]).delete().eq("dados->>exemplo","true");if(error)throw erro(error);
+      if(TAB[col]==="pessoas"&&OFF.pessoas){for(const id of Object.keys(OFF.pessoas))if(OFF.pessoas[id]&&OFF.pessoas[id].exemplo)delete OFF.pessoas[id];offGuardar("pessoas")}avisar(TAB[col])},
+    contar:async col=>{precisaInternet();const {count,error}=await sb.from(TAB[col]).select("id",{count:"exact",head:true});if(error)throw erro(error);return count||0},
     pausar:(t,v)=>{pausa[t]=!!v},
-    recarregar:t=>{for(const f of (ouvintes[t]||[]))f()}}
+    recarregar:t=>{for(const f of (ouvintes[t]||[]))f()},
+    info,enviarFila,
+    aoMudarEstado:f=>{aoMudar=f;avisarEstado()},
+    aoSincronizar:f=>{aoSincronizar=f},
+    definirSessao:v=>mudarSessao(v)}
 }
 function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_local")||"[]")}catch(e){state.records=[]}if(!Array.isArray(state.records))state.records=[];
   let bl=null;try{bl=JSON.parse(ls("sig_bairros")||"null")}catch(e){}applyBairros(bl);
   let ul=[];try{ul=JSON.parse(ls("sig_users")||"[]")}catch(e){}applyUsers(ul,true);
   setStatus("warn",msg);onRecords()}
+/* senha guardada neste computador só como verificação (PBKDF2), para entrar sem internet */
+async function hashSenha(u,pw,sal){const te=new TextEncoder();const k=await crypto.subtle.importKey("raw",te.encode(u+"\n"+pw),"PBKDF2",false,["deriveBits"]);
+  const b=await crypto.subtle.deriveBits({name:"PBKDF2",salt:te.encode(sal),iterations:150000,hash:"SHA-256"},k,256);return Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,"0")).join("")}
+function sessaoGuardada(){try{const s=JSON.parse(localStorage.getItem("sig-almadina-login")||"null");return !!(s&&(s.refresh_token||(s.currentSession&&s.currentSession.refresh_token)))}catch(e){return false}}
+/* barra de status: conectado, sem internet, enviando alterações… */
+function mostrarConexao(i){if(!i||state.db===null)return;const n=i.pendentes,c=i.cadastros,pl=c===1?"1 cadastro alterado":nf0(c)+" cadastros alterados";
+  if(!i.online)setStatus("warn","Sem internet · usando os dados salvos neste computador"+(c?` · ${pl} aguardando envio`:""));
+  else if(n&&(i.semLogin||(state.authOffline&&!i.sessao)))setStatus("warn",(c?pl:"Alterações")+" salvo"+(c===1?"":"s")+" neste computador · entre com internet para enviar");
+  else if(n)setStatus("warn","Enviando as alterações feitas sem internet…");
+  else if(state.authOk&&state.recordsLoaded)setStatus("live","Sincronizado em tempo real");
+  else if(!state.authOk&&state.resumoPub)setStatus("live","Conectado · painel público")}
+function nf0(x){return Number(x).toLocaleString("pt-BR")}
 (async function(){
   // downloads (relatório Excel e planilha) direto pelo navegador
   state.dl={save:async({filename,data})=>{const u=URL.createObjectURL(data);const a=document.createElement("a");a.href=u;a.download=filename;a.rel="noopener";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),8000)}};
   if(!window.supabase||typeof window.supabase.createClient!=="function"){startLocal("Não foi possível carregar a biblioteca do Supabase. Modo local: os dados ficam só neste navegador.");return}
+  await offCarregar();
   let sb;
   try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"sig-almadina-login"},realtime:{params:{eventsPerSecond:5}}})}
   catch(e){console.error(e);startLocal("Não foi possível conectar ao Supabase. Modo local ativo.");return}
@@ -1792,8 +1912,11 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
   state.db=db;state.isOwner=false;window.__sig_supabase=sb;
   // login: sem sessão, a pessoa vê só o painel público (resumo); com sessão, lê e grava os cadastros
   let sess=null;try{const r=await sb.auth.getSession();sess=r&&r.data?r.data.session:null}catch(e){}
-  if(sess&&(isTvDevice()||isAndroid())){try{await sb.auth.signOut()}catch(e){}sess=null}
-  state.authOk=!!sess;state.canWrite=!!sess;state.resumoPub=null;
+  // sem internet o Supabase não consegue renovar a sessão, mas ela continua guardada: o login vale até clicar em Sair
+  let offSess=!sess&&sessaoGuardada()&&semInternet();
+  if((sess||offSess)&&(isTvDevice()||isAndroid())){try{await sb.auth.signOut({scope:"local"})}catch(e){}sess=null;offSess=false}
+  db.definirSessao(!!sess);
+  state.authOk=!!(sess||offSess);state.canWrite=state.authOk;state.authOffline=offSess;state.resumoPub=null;
   let gotLive=false;const timer=setTimeout(()=>{if(!gotLive)setStatus("warn","O banco de dados ainda não respondeu. Verifique a internet.")},10000);
   db.doc("config/usuarios").onSnapshot(s=>{try{applyUsers(s.exists?s.data().lista:[],true)}catch(e){}},()=>{applyUsers([],true)});
   db.doc("publico/bairros").onSnapshot(s=>{try{applyBairros(s.exists?s.data().lista:null)}catch(e){}},()=>{});
@@ -1805,17 +1928,34 @@ function startLocal(msg){state.db=null;try{state.records=JSON.parse(ls("sig_loca
     if((v==="painel"||v==="bairros"||v==="emprego")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel();else if(ch&&state.view==="emprego")renderEmprego()}catch(e){}},()=>{});
   function ligarPessoas(){if(state.pessoasSub)return;
     state.pessoasSub=db.collection("pessoas").onSnapshot(snap=>{if(!state.authOk||state.cargaMassa)return;state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
-        gotLive=true;clearTimeout(timer);setStatus("live","Sincronizado em tempo real");onRecords()},
-      err=>{clearTimeout(timer);setStatus("warn","Não foi possível ler os cadastros no Supabase. Recarregue a página.")})}
+        gotLive=true;clearTimeout(timer);mostrarConexao(db.info());onRecords()},
+      err=>{clearTimeout(timer);setStatus("warn",err&&err.rede?"Sem internet e sem cópia dos cadastros neste computador. Conecte-se uma vez para baixar os dados.":"Não foi possível ler os cadastros no Supabase. Recarregue a página.")})}
   db.doc("publico/resumo").onSnapshot(s=>{state.resumoPub=s.exists?s.data():null;
-      if(!state.authOk){gotLive=true;clearTimeout(timer);setStatus("live","Conectado · painel público");if(state.resumoPub){state.resumo=state.resumoPub;refresh()}}},()=>{});
-  autenticar=async(u,pw)=>{const r=await sb.auth.signInWithPassword({email:u+"@usuarios.sig-almadina.app",password:pw});
-    if(r.error){if(r.error.status===400||/invalid|credentials/i.test(r.error.message||""))return false;throw r.error}
-    state.authOk=true;state.canWrite=true;ligarPessoas();return true};
-  state.sair=()=>{if(!state.authOk)return;state.authOk=false;state.canWrite=false;if(state.pessoasSub){state.pessoasSub();state.pessoasSub=null}
-    state.records=[];state.recordsLoaded=false;state.resumo=state.resumoPub||buildResumo([]);setTimeout(()=>{sb.auth.signOut().catch(()=>{})},800);refresh()};
+      if(!state.authOk){gotLive=true;clearTimeout(timer);mostrarConexao(db.info());if(state.resumoPub){state.resumo=state.resumoPub;refresh()}}},()=>{});
+  db.aoMudarEstado(mostrarConexao);
+  // ao terminar de enviar o que foi feito sem internet, este computador republica o resumo do painel/TV
+  db.aoSincronizar(()=>{marcarPublicar();db.recarregar("pessoas")});
+  let senhaPend=null;// só na memória, enquanto entrou sem internet: serve para entrar no Supabase quando a internet voltar
+  const entrarOnline=async(u,pw)=>{let r;try{r=await sb.auth.signInWithPassword({email:u+"@usuarios.sig-almadina.app",password:pw})}catch(e){r={error:e}}return r};
+  window.addEventListener("online",async()=>{if(!senhaPend||!state.authOk)return;const p=senhaPend;const r=await entrarOnline(p.u,p.pw);
+    if(!r.error){senhaPend=null;state.authOffline=false;db.definirSessao(true)}else if(!ehErroRede(r.error))senhaPend=null});
+  autenticar=async(u,pw)=>{const r=await entrarOnline(u,pw);
+    if(r.error){
+      if(ehErroRede(r.error)){// sem internet: confere com a senha usada no último login com internet neste computador
+        let g=null;try{g=JSON.parse(ls("sig_login_offline")||"null")}catch(e){}
+        if(!g||!g.h){const x=new Error("sem login guardado");x.offline="Sem internet. Para usar o SIG sem internet, entre uma vez com internet neste computador.";throw x}
+        if(g.u!==u||await hashSenha(u,pw,g.sal)!==g.h)return false;
+        senhaPend={u,pw};state.authOk=true;state.canWrite=true;state.authOffline=true;ligarPessoas();mostrarConexao(db.info());return true}
+      if(r.error.status===400||/invalid|credentials/i.test(r.error.message||""))return false;throw r.error}
+    try{const sal=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,"0")).join("");ls("sig_login_offline",JSON.stringify({u,sal,h:await hashSenha(u,pw,sal)}))}catch(e){}
+    senhaPend=null;state.authOk=true;state.canWrite=true;state.authOffline=false;db.definirSessao(true);ligarPessoas();return true};
+  state.sair=()=>{if(!state.authOk)return;state.authOk=false;state.canWrite=false;state.authOffline=false;senhaPend=null;if(state.pessoasSub){state.pessoasSub();state.pessoasSub=null}
+    state.records=[];state.recordsLoaded=false;state.resumo=state.resumoPub||buildResumo([]);
+    setTimeout(()=>{sb.auth.signOut({scope:semInternet()?"local":"global"}).catch(()=>{}).finally(()=>{try{if(semInternet())localStorage.removeItem("sig-almadina-login")}catch(e){}db.definirSessao(false)})},800);refresh()};
   if(state.authOk){ligarPessoas();restoreSession()}
 })();
+/* site guardado no computador (service worker): o SIG abre mesmo sem internet */
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SIG: service worker",e))});
 /* atualização automática: quando sair uma versão nova do sistema, a página recarrega sozinha
    (notebooks, celulares e a Smart TV ficam sempre iguais); nunca no meio de um cadastro, janela aberta ou carga de exemplos */
 (function(){if(!/^https?:$/.test(location.protocol))return;let base=null,nova=false;

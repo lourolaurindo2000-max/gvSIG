@@ -12,6 +12,8 @@ Versão 1.0 · © 2026 Todos os direitos reservados a André Almeida, desenvolve
 | `SIG.ico` | Ícone da aba do navegador |
 | `package.json` / `package-lock.json` | Bibliotecas: `@supabase/supabase-js` 2.57.4 e `@supabase/ssr` 0.7.0 (versões fixas) |
 | `scripts/copiar-supabase.js` | Monta a pasta `public/` que o Vercel publica |
+| `sw.js` | Service worker: guarda o site no aparelho para abrir sem internet |
+| `manifest.webmanifest`, `icone-192.png`, `icone-512.png` | Permitem instalar o SIG como aplicativo no computador |
 | `vercel.json` | Configuração do Vercel (instalação, build e cabeçalhos) |
 | `.env` | `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
 | `.env.example` | Modelo do `.env` |
@@ -28,6 +30,15 @@ Projeto: **Sistema_integrado_de_gestao** (`elqxgsfgovuktwgoituv`).
 | `auditoria` | Histórico de ações | Ler e registrar; ninguém altera nem apaga |
 
 O acesso é aberto, sem login: qualquer pessoa com o endereço do site pode cadastrar, editar e excluir.
+
+## Com e sem internet
+
+- **Com internet:** tudo é lido e gravado no Supabase, em tempo real.
+- **Sem internet:** o site abre pela cópia guardada no aparelho (precisa ter sido aberto uma vez com internet). O painel mostra os últimos números recebidos. No computador do administrador, os cadastros ficam salvos no navegador (IndexedDB); cadastrar, editar e excluir continuam funcionando e as alterações entram numa fila.
+- **Quando a internet volta:** a fila é enviada sozinha, na ordem, e o resumo do painel/TV é republicado.
+- **Login sem internet:** funciona se o administrador já entrou com internet naquele computador (a senha é conferida por um código guardado, nunca a senha em si).
+- Precisam de internet: carregar/remover exemplos e o primeiro acesso em um aparelho novo.
+- No Chrome/Edge, o ícone de instalar na barra de endereço cria um atalho do SIG na área de trabalho.
 
 ## Publicar
 

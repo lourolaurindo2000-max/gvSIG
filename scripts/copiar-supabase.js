@@ -42,6 +42,10 @@ if (url) html = html.replace(/const SUPABASE_URL = "[^"]*";/, `const SUPABASE_UR
 if (chave) html = html.replace(/const SUPABASE_KEY = "[^"]*";/, `const SUPABASE_KEY = ${JSON.stringify(chave)};`);
 fs.writeFileSync(path.join(saida, "index.html"), html);
 fs.copyFileSync(path.join(raiz, "SIG.ico"), path.join(saida, "SIG.ico"));
+// funcionamento sem internet: service worker (com a versão desta publicação), manifesto e ícones do aplicativo
+for (const a of ["manifest.webmanifest", "icone-192.png", "icone-512.png"]) fs.copyFileSync(path.join(raiz, a), path.join(saida, a));
+const versaoSite = process.env.VERCEL_GIT_COMMIT_SHA ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 12) : Date.now().toString(36);
+fs.writeFileSync(path.join(saida, "sw.js"), fs.readFileSync(path.join(raiz, "sw.js"), "utf8").replace("__VERSAO__", versaoSite));
 fs.copyFileSync(lib, path.join(saida, "vendor", "supabase.js"));
 
 const versao = require(path.join(raiz, "node_modules", "@supabase", "supabase-js", "package.json")).version;
