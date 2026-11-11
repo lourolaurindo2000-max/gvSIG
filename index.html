@@ -438,8 +438,7 @@ body.tv #tbOcup td:first-child{font-weight:600}
 @media (max-width:900px){body.tv #v-emprego .grid{grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,minmax(0,1fr))}}
 /* Smart TV: sem engrenagem de configuração (admin só no notebook e outros aparelhos) */
 html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf],html.tv-device .status{display:none!important}
-/* Android, celulares e iPad: sem modo administrativo; só em computadores (Windows, Linux, Mac) */
-html.android-device #adminBtn,html.android-device #logoutBtn{display:none!important}
+/* Android, celulares e iPad: modo administrativo só para novos cadastros (perfil "celular") */
 /* TV menor (ex.: 1280x720 ou 960x540): mapa + 4 gráficos principais */
 @media (max-width:1399px),(max-height:700px){
   body.tv #v-painel .grid{grid-template-columns:1.5fr repeat(2,minmax(0,1fr))}
@@ -477,7 +476,7 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
       <button class="tab" data-view="bairros">Bairros</button>
       <button class="tab" data-view="emprego">Emprego</button>
       <button class="tab" data-perm="ver" data-view="pessoas" hidden>Pessoas</button>
-      <button class="tab" data-perm="editar" data-view="cadastro" hidden>Novo cadastro</button>
+      <button class="tab" data-perm="cadastrar" data-view="cadastro" hidden>Novo cadastro</button>
       <button class="tab" data-perm="bairros" data-view="config" hidden>Cadastrar Bairros</button>
       <button class="tab" data-perm="usuarios" data-view="usuarios" hidden>Usuários</button>
       <button class="tab" data-perm="auditoria" data-view="auditoria" hidden>Auditoria</button>
@@ -488,7 +487,7 @@ html.android-device #adminBtn,html.android-device #logoutBtn{display:none!import
     </div>
     <button class="theme-btn" id="tvBtn" type="button" aria-pressed="false" aria-label="Ativar o modo TV (tela cheia, sem rolagem)" title="Modo TV: tudo em uma tela"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 17.5V21"/></svg><span class="tv-lbl">TV</span></button>
     <button class="theme-btn" id="themeBtn" type="button" aria-label="Mudar para o modo escuro" title="Modo claro / escuro"></button>
-    <button class="theme-btn exit-btn" id="logoutBtn" type="button" data-perm="ver" hidden title="Sair do modo administrativo" aria-label="Sair do modo administrativo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg><span>Sair</span></button>
+    <button class="theme-btn exit-btn" id="logoutBtn" type="button" data-perm="cadastrar" hidden title="Sair do modo administrativo" aria-label="Sair do modo administrativo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg><span>Sair</span></button>
     <button class="theme-btn gear-btn" id="adminBtn" type="button" aria-label="Configurações: entrar no modo administrativo" title="Configurações">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.9 4.6 1.7 1.7 0 0 0 9.93 3.04V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.07z"/></svg>
       <span id="adminLbl" class="sr-only">Configurações</span>
@@ -1136,10 +1135,11 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden
 function confirmBox(t,p,label,fn){modal(`<h3>${esc(t)}</h3><p>${esc(p)}</p><div class="row"><button class="btn" id="mNo" type="button">Cancelar</button><button class="btn danger solid" id="mYes" type="button">${esc(label)}</button></div>`);$("#mNo").onclick=closeModal;$("#mYes").onclick=async()=>{$("#mYes").disabled=true;await fn();closeModal()}}
 
 /* ---------- usuários, perfis e auditoria ---------- */
-const PERFIS={admin:{l:"Administrador",d:"Acesso total: cadastra, edita, exclui, exporta, gerencia bairros, usuários e auditoria.",p:["ver","editar","excluir","bairros","usuarios","auditoria","exportar","exemplos","nominal"]},
-  cadastrador:{l:"Cadastrador",d:"Cadastra e edita pessoas. Não exclui nem exporta.",p:["ver","editar"]},
+const PERFIS={admin:{l:"Administrador",d:"Acesso total: cadastra, edita, exclui, exporta, gerencia bairros, usuários e auditoria.",p:["ver","cadastrar","editar","excluir","bairros","usuarios","auditoria","exportar","exemplos","nominal"]},
+  cadastrador:{l:"Cadastrador",d:"Cadastra e edita pessoas. Não exclui nem exporta.",p:["ver","cadastrar","editar"]},
   consulta:{l:"Consulta",d:"Apenas consulta as pessoas cadastradas.",p:["ver"]}};
-const VIEW_PERM={pessoas:"ver",cadastro:"editar",config:"bairros",usuarios:"usuarios",auditoria:"auditoria"};
+PERFIS.celular={l:"Celular",d:"No celular ou tablet: só faz novos cadastros de pessoas.",p:["cadastrar"]};
+const VIEW_PERM={pessoas:"ver",cadastro:"cadastrar",config:"bairros",usuarios:"usuarios",auditoria:"auditoria"};
 state.users=null;state.usersLive=false;state.me=null;state.audit=[];state.auditSub=null;
 const can=a=>!!(state.me&&PERFIS[state.me.perfil]&&PERFIS[state.me.perfil].p.includes(a));
 const USER_RE=/^[a-z0-9._-]{3,30}$/;
@@ -1201,13 +1201,15 @@ function editUsuario(u){const isNew=!u;
 
 /* modo administrativo protegido por usuário e senha */
 const ADMIN_FIXO={id:"admin",usuario:"admin",nome:"Administrador",perfil:"admin"};
+/* celular e tablet: entra no modo administrativo só para cadastrar pessoas (sem lista, edição, exclusão, exportação ou bairros) */
+const SESSAO=()=>isAndroid()?Object.assign({},ADMIN_FIXO,{perfil:"celular"}):ADMIN_FIXO;
 PERFIS.admin.p=PERFIS.admin.p.filter(x=>x!=="usuarios");
 function adminEntrou(next){
-  try{setSession(ADMIN_FIXO)}catch(e){console.error(e);state.me=Object.assign({},ADMIN_FIXO);state.admin=true;try{ss("sig_me",JSON.stringify({id:"admin"}));$$("[data-perm]").forEach(el=>el.hidden=!can(el.dataset.perm));$("#adminBtn").classList.add("on")}catch(x){}}
+  try{setSession(SESSAO())}catch(e){console.error(e);state.me=Object.assign({},SESSAO());state.admin=true;try{ss("sig_me",JSON.stringify({id:"admin"}));$$("[data-perm]").forEach(el=>el.hidden=!can(el.dataset.perm));$("#adminBtn").classList.add("on")}catch(x){}}
   closeModal();
-  try{go(next&&can(VIEW_PERM[next]||"ver")?next:"pessoas")}catch(e){console.error(e)}
+  try{go(next&&can(VIEW_PERM[next]||"ver")?next:firstAllowed())}catch(e){console.error(e)}
   try{logAudit("acesso","Entrou no modo administrativo","Administrador","")}catch(e){}
-  toast("Você está logado no modo administrador.")}
+  toast(can("ver")?"Você está logado no modo administrador.":"Modo administrativo no celular: você pode fazer novos cadastros.")}
 /* tela de login: usuário e senha do administrador */
 let falhasLogin=0,bloqLoginAte=0;
 function pedirSenha(next){
@@ -1227,15 +1229,14 @@ function pedirSenha(next){
     falhasLogin=0;adminEntrou(next)}}
 async function openLogin(next){
   if(isTvDevice()){toast("As configurações não ficam disponíveis na Smart TV");return}
-  if(isAndroid()){toast("O modo administrativo só funciona em computador (Windows, Linux ou Mac)");return}
   if(state.db===undefined){toast("Aguarde a conexão com o banco de dados");return}
   if(state.authOk){adminEntrou(next);return}
   pedirSenha(next)}
 /* o login fica guardado no navegador (sessão do Supabase) até a pessoa clicar em Sair */
-function restoreSession(){if(state.authOk&&!state.me&&!isTvDevice()&&!isAndroid())setSession(ADMIN_FIXO)}
+function restoreSession(){if(state.authOk&&!state.me&&!isTvDevice())setSession(SESSAO())}
 let autenticar=async()=>false;/* definida ao conectar ao Supabase */
 $("#adminBtn").onclick=()=>{if(!state.me){openLogin("pessoas");return}
-  modal(`<h3>Modo administrativo ativo</h3><p>Você pode cadastrar, editar, excluir, exportar e configurar os bairros. Ao sair, o SIG volta a mostrar só o painel.</p><div class="row"><button class="btn" type="button" id="aC">Continuar</button><button class="btn danger solid" type="button" id="aOut">Sair do modo administrativo</button></div>`);
+  modal(`<h3>Modo administrativo ativo</h3><p>${can("ver")?"Você pode cadastrar, editar, excluir, exportar e configurar os bairros.":"No celular você pode fazer novos cadastros de pessoas. Lista, edição, exclusão, exportação e bairros ficam só no computador."} Ao sair, o SIG volta a mostrar só o painel.</p><div class="row"><button class="btn" type="button" id="aC">Continuar</button><button class="btn danger solid" type="button" id="aOut">Sair do modo administrativo</button></div>`);
   $("#aC").onclick=closeModal;$("#aOut").onclick=()=>{logAudit("acesso","Saiu do modo administrativo","Administrador","");closeModal();logout(true);toast("Você saiu do modo administrativo")}};
 
 /* auditoria */
@@ -1434,9 +1435,9 @@ F.addEventListener("submit",async e=>{e.preventDefault();const o=readForm();if(!
       if(old.nome&&old.nome!==o.nome)rec.nomesAnteriores=[...(rec.nomesAnteriores||[]),{nome:old.nome,ate:now}].slice(-10);
       rec.criadoPor=old.criadoPor||old.agente||"";rec.atualizadoPor=state.me?state.me.nome:"";const ch=diffFields(old,rec);await saveRec(state.editing,rec);toast("Cadastro atualizado");logAudit("edicao","Editou cadastro",o.nome,ch.length?"Campos: "+ch.join(", "):"Sem alterações")}
     else{const who=state.me?state.me.nome:"";await saveRec(null,Object.assign({},o,{criadoEm:now,atualizadoEm:now,criadoPor:who,atualizadoPor:who}));toast("Cadastro salvo");logAudit("cadastro","Cadastrou pessoa",o.nome,"Bairro: "+o.bairro)}
-    if(o.agente)ls("sig_agente",o.agente);state.editing=null;resetForm();go("pessoas")}
+    if(o.agente)ls("sig_agente",o.agente);state.editing=null;resetForm();go(can("ver")?"pessoas":"cadastro")}
   catch(err){toast(errMsg(err))}finally{btn.disabled=false;btn.textContent=state.editing?"Salvar alterações":"Salvar cadastro"}});
-$("#btnCancel").onclick=()=>{state.editing=null;resetForm();go("pessoas")};
+$("#btnCancel").onclick=()=>{state.editing=null;resetForm();go(can("ver")?"pessoas":"cadastro")};
 function errMsg(err){const c=err&&err.code;if(c==="quota_exceeded")return "O banco de dados atingiu o limite. Exclua cadastros antigos.";if(c==="invalid_argument")return "Sem permissão para gravar. Peça acesso de colaborador.";return "Não foi possível salvar. Verifique a conexão e tente de novo."}
 
 /* tabela: ações */
@@ -1509,7 +1510,8 @@ function conferirResumo(){if(state.resumoConferido||!state.me||!state.recordsLoa
   state.resumoConferido=true;marcarPublicar();return true}
 function aplicarRecords(){conferirResumo();state.resumo=buildResumo(state.records);if(state.db&&state.canWrite!==false&&(state.cargaMassa||Date.now()<(state.pubAte||0)))schedulePublish();refresh()}
 /* a Smart TV lê este resumo em tempo real: publica no máximo a cada 0,8 s, uma gravação por vez */
-function schedulePublish(){if(pubTimer)return;if(state.pubBusy){state.pubAgain=true;return}
+/* sem internet (celular na rua) não publica o resumo da TV: quando a internet volta, a fila é enviada e o resumo é refeito com todos os cadastros */
+function schedulePublish(){if(pubTimer)return;if(semInternet())return;if(state.pubBusy){state.pubAgain=true;return}
   pubTimer=setTimeout(async()=>{pubTimer=null;const r=buildResumo(state.records);const cmp=JSON.stringify(Object.assign({},r,{atualizado:0}));if(cmp===lastPub)return;
     state.pubBusy=true;try{await state.db.doc("publico/resumo").set(r);lastPub=cmp}catch(e){}finally{state.pubBusy=false;if(state.pubAgain){state.pubAgain=false;schedulePublish()}}},800)}
 function refresh(){if(state.resumo){state.resumo.bairros=state.resumo.bairros||{};for(const b of BAIRROS)if(!state.resumo.bairros[b])state.resumo.bairros[b]=aggregate([])}
@@ -1605,7 +1607,7 @@ if(isTvDevice()){document.documentElement.classList.add("tv-device");if(state.me
 const isAndroid=()=>{try{const d=navigator.userAgentData,ua=navigator.userAgent||"";if(d&&(d.mobile||/android/i.test(d.platform||"")))return true;
   if(/Macintosh/i.test(ua)&&navigator.maxTouchPoints>1)return true;/* iPad com iPadOS se apresenta como Mac, mas tem tela de toque */
   return /android|iphone|ipod|ipad|windows phone|blackberry|bb10|kaios|opera mini|iemobile|mobile/i.test(ua)}catch(e){return false}};
-if(isAndroid()){document.documentElement.classList.add("android-device");if(state.me)logout(true)}
+if(isAndroid())document.documentElement.classList.add("android-device");
 function fsEl(){return document.fullscreenElement||document.webkitFullscreenElement||null}
 function enterFs(){if(fsEl())return;const el=document.documentElement;try{const p=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 function exitFs(){if(!fsEl())return;try{const p=(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
@@ -1924,7 +1926,7 @@ function nf0(x){return Number(x).toLocaleString("pt-BR")}
   let sess=null;try{const r=await sb.auth.getSession();sess=r&&r.data?r.data.session:null}catch(e){}
   // sem internet o Supabase não consegue renovar a sessão, mas ela continua guardada: o login vale até clicar em Sair
   let offSess=!sess&&sessaoGuardada()&&semInternet();
-  if((sess||offSess)&&(isTvDevice()||isAndroid())){try{await sb.auth.signOut({scope:"local"})}catch(e){}sess=null;offSess=false}
+  if((sess||offSess)&&isTvDevice()){try{await sb.auth.signOut({scope:"local"})}catch(e){}sess=null;offSess=false}
   db.definirSessao(!!sess);
   state.authOk=!!(sess||offSess);state.canWrite=state.authOk;state.authOffline=offSess;state.resumoPub=null;
   let gotLive=false;const timer=setTimeout(()=>{if(!gotLive)setStatus("warn","O banco de dados ainda não respondeu. Verifique a internet.")},10000);
