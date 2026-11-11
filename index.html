@@ -1122,7 +1122,7 @@ function go(v){
   window.scrollTo({top:0});
 }
 /* controle da Smart TV: Painel/Bairros, filtro de bairro (Todos, Centro…) e indicador do mapa clicados no computador mudam a tela da TV */
-function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"&&v!=="emprego"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice())return;const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"&&v!=="emprego"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice()||isAndroid())return;/* celular e tablet só lançam cadastros: não controlam a TV nem os outros aparelhos */const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 $$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view);sendTela(t.dataset.view)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
