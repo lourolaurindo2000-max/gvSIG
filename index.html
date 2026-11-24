@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="SIG - Sistema Integrado de Gestão · Almadina-BA · Mapeamento social dos bairros">
 <meta name="theme-color" content="#14513f">
+<!-- o próprio SIG cuida do modo claro/escuro: o celular não deve escurecer a página por conta própria -->
+<meta name="color-scheme" content="only light">
 <link rel="icon" href="SIG.ico">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icone-192.png">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:only light}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>SIG Almadina</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -305,6 +307,8 @@ footer b{font-family:var(--f-display)}
 #reiniciarBtn{position:fixed;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:40;width:26px;height:26px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.75;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 #reiniciarBtn:hover,#reiniciarBtn:focus-visible{opacity:1;color:var(--accent)}
 html.tv-device #reiniciarBtn,html.android-device #reiniciarBtn{display:none}
+/* celulares e tablets não têm o modo TV */
+html.android-device:not(.tv-device) #tvBtn{display:none!important}
 footer .wrap{flex-direction:column;gap:8px}
 body>header,body>main,body>footer{min-width:0;max-width:100%}
 footer .wrap>*{min-width:0;max-width:100%}
@@ -1627,10 +1631,12 @@ function setTV(on,fromUser,auto){document.body.classList.toggle("tv",on);documen
 /* Smart TV: altura da tela em pixels (navegadores antigos de TV calculam mal 100vh/100dvh e mostram barra de rolagem) */
 function tvAltura(){const on=document.body.classList.contains("tv");document.body.style.height=on?window.innerHeight+"px":"";document.body.style.maxHeight=on?window.innerHeight+"px":"";if(on)window.scrollTo(0,0)}
 window.addEventListener("resize",tvAltura);
-$("#tvBtn").onclick=()=>{setTV(!document.body.classList.contains("tv"),true);toast(document.body.classList.contains("tv")?"Modo TV ativado: tudo em uma tela":"Modo TV desativado")};
-window.addEventListener("hashchange",()=>{if(location.hash==="#tv"&&!document.body.classList.contains("tv"))setTV(true)});
+$("#tvBtn").onclick=()=>{if(semModoTv())return;setTV(!document.body.classList.contains("tv"),true);toast(document.body.classList.contains("tv")?"Modo TV ativado: tudo em uma tela":"Modo TV desativado")};
+/* celular/tablet (que não seja Smart TV) nunca entra no modo TV */
+const semModoTv=()=>isAndroid()&&!isTvDevice();
+window.addEventListener("hashchange",()=>{if(semModoTv())return;if(location.hash==="#tv"&&!document.body.classList.contains("tv"))setTV(true)});
 /* na Smart TV o modo TV liga sempre ao abrir (mesmo que alguém tenha saído dele antes) */
-(function(){const sv=ls("sig_tv");if(location.hash==="#tv"||sv==="1"||isTvDevice())setTV(true,false,true)})();
+(function(){if(semModoTv()){ls("sig_tv","0");try{if(location.hash==="#tv")history.replaceState(null,"",location.pathname+location.search)}catch(e){}return}const sv=ls("sig_tv");if(location.hash==="#tv"||sv==="1"||isTvDevice())setTV(true,false,true)})();
 /* Smart TV: tela cheia ao abrir; se o navegador da TV exigir um toque, entra em tela cheia no primeiro botão do controle */
 if(isTvDevice()){enterFs();const fsTv=()=>{if(document.body.classList.contains("tv"))enterFs()};["keydown","click","pointerdown","touchend"].forEach(t=>document.addEventListener(t,fsTv,true))}
 $("#reiniciarBtn").onclick=()=>{toast("Reiniciando o sistema…");setTimeout(()=>location.reload(),300)};
