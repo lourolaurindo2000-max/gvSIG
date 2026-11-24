@@ -1128,7 +1128,7 @@ function go(v){
   window.scrollTo({top:0});
 }
 /* controle da Smart TV: Painel/Bairros, filtro de bairro (Todos, Centro…) e indicador do mapa clicados no computador mudam a tela da TV */
-function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"&&v!=="emprego"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice()||isAndroid())return;/* celular e tablet só lançam cadastros: não controlam a TV nem os outros aparelhos */const p=state.db.doc("publico/tela").set({view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+function sendTela(v,soTema){v=v||state.view;if(v!=="painel"&&v!=="bairros"&&v!=="emprego"){if(!soTema)return;v=""}try{if(!state.db||isTvDevice()||isAndroid())return;/* celular e tablet só lançam cadastros: não controlam a TV nem os outros aparelhos */const t={view:v,filtro:state.filter||"",metrica:state.mapMetric||"",tema:effTheme(),quando:new Date().toISOString()};if(state.db.enviarTela)state.db.enviarTela(t);const p=state.db.doc("publico/tela").set(t);if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 $$(".tab").forEach(t=>t.onclick=()=>{if(t.dataset.view==="cadastro")state.editing=null;go(t.dataset.view);sendTela(t.dataset.view)});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){state.editing=null;go(g.dataset.go)}});
 
@@ -1786,7 +1786,11 @@ function criarBancoSupabase(sb){
   function ligarAvisos(){if(avisos)return;let morto=false;
     const c=sb.channel("sig-avisos",{config:{broadcast:{self:false,ack:false}}});avisos=c;
     c.on("broadcast",{event:"mudou"},m=>{const t=m&&m.payload&&m.payload.tabela;if(ouvintes[t])for(const f of ouvintes[t])f()});
+    c.on("broadcast",{event:"tela"},m=>{const d=m&&m.payload;if(d&&typeof d==="object")for(const f of ouvTela)try{f(d)}catch(e){}});
     c.subscribe(st=>{if(morto)return;if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){morto=true;if(avisos===c)avisos=null;try{sb.removeChannel(c)}catch(e){}setTimeout(ligarAvisos,semInternet()?15000:5000)}})}
+  // comando do computador para a Smart TV: vai direto pelo canal (a TV aplica na hora); o banco continua guardando a última tela
+  const ouvTela=new Set();
+  function enviarTela(d){try{ligarAvisos();const r=avisos.send({type:"broadcast",event:"tela",payload:d});if(r&&r.catch)r.catch(()=>{})}catch(e){}}
   function avisar(t){try{ligarAvisos();const r=avisos.send({type:"broadcast",event:"mudou",payload:{tabela:t}});if(r&&r.catch)r.catch(()=>{})}catch(e){}}
   function ouvir(tabela,recarregar){ligarTempoReal(tabela);ligarAvisos();let t=null;const f=()=>{if(pausa[tabela])return;clearTimeout(t);t=setTimeout(recarregar,250)};ouvintes[tabela].add(f);
     const iv=setInterval(()=>{if(!pausa[tabela])recarregar()},isTvDevice()?5000:30000);// reserva, caso o tempo real caia (na Smart TV, a cada 5 s: TVs antigas às vezes não mantêm o tempo real)
@@ -1829,7 +1833,7 @@ function criarBancoSupabase(sb){
     const precisaSessao=op.tabela!=="configuracoes";
     if(!OFF.fila.length&&!semInternet()&&(!precisaSessao||est.sessao)){
       let r;try{r=await executar(op)}catch(e){r={error:e}}const e=r&&r.error;
-      if(!e||(op.tipo==="insert"&&e.code==="23505")){marcarOnline(true);avisar(op.tabela);return}
+      if(!e||(op.tipo==="insert"&&e.code==="23505")){marcarOnline(true);if(op.chave!=="publico/tela")avisar(op.tabela);return}
       if(!ehErroRede(e))throw erro(e);
       marcarOnline(false)}
     if(precisaSessao&&!est.sessao&&!semInternet()&&!state.authOffline){const x=new Error("Entre no modo administrativo para gravar");x.code="permission-denied";throw x}
@@ -1857,7 +1861,7 @@ function criarBancoSupabase(sb){
       update:async v=>{const s=await ler();if(!s.exists){const x=new Error("não existe");x.code="not-found";throw x}const novo=Object.assign(s.data(),JSON.parse(JSON.stringify(v)));
         await gravar({tabela,tipo:"upsert",chave:cfg?chave:undefined,id:cfg?undefined:id,linha:cfg?{chave,dados:novo}:tabela==="pessoas"?linhaPessoa(id,novo):{id,dados:novo}})},
       delete:async()=>{await gravar({tabela,tipo:"delete",chave:cfg?chave:undefined,id:cfg?undefined:id})},
-      onSnapshot:(next,onErr)=>{let vivo=true,seq=0;const carregar=()=>{const n=++seq;return ler().then(s=>{if(vivo&&n===seq)next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr&&e.code==="permission-denied")onErr(e)})};
+      onSnapshot:(next,onErr)=>{let vivo=true,seq=0,ult;const carregar=()=>{const n=++seq;return ler().then(s=>{if(!vivo||n!==seq)return;let k;try{k=JSON.stringify(s.exists?s.data():null)}catch(e){}if(k!==undefined&&k===ult)return;ult=k;next(s)}).catch(e=>{console.warn(e);if(vivo&&onErr&&e.code==="permission-denied")onErr(e)})};
         carregar();const parar=ouvir(tabela,carregar);return()=>{vivo=false;parar()}}}}
   function colRef(col,ordem,limite){
     const tabela=TAB[col];if(!tabela)throw new Error("Coleção desconhecida: "+col);
@@ -1906,6 +1910,7 @@ function criarBancoSupabase(sb){
     recarregar:t=>{for(const f of (ouvintes[t]||[]))f()},
     info,enviarFila,
     aoMudarEstado:f=>{aoMudar=f;avisarEstado()},
+    enviarTela,aoTela:f=>{ouvTela.add(f);ligarAvisos();return()=>ouvTela.delete(f)},
     aoSincronizar:f=>{aoSincronizar=f},
     definirSessao:v=>mudarSessao(v)}
 }
@@ -1945,12 +1950,14 @@ function nf0(x){return Number(x).toLocaleString("pt-BR")}
   let gotLive=false;const timer=setTimeout(()=>{if(!gotLive)setStatus("warn","O banco de dados ainda não respondeu. Verifique a internet.")},10000);
   db.doc("config/usuarios").onSnapshot(s=>{try{applyUsers(s.exists?s.data().lista:[],true)}catch(e){}},()=>{applyUsers([],true)});
   db.doc("publico/bairros").onSnapshot(s=>{try{applyBairros(s.exists?s.data().lista:null)}catch(e){}},()=>{});
-  let telaPrim=true;db.doc("publico/tela").onSnapshot(s=>{try{const prim=telaPrim;telaPrim=false;if(!isTvDevice()||!s.exists)return;const d=s.data()||{},v=d.view;
+  let telaQuando="",telaHora=0;const aplicarTela=d=>{try{if(!isTvDevice()||!d)return;const q=typeof d.quando==="string"?d.quando:"";if(q&&telaQuando&&q<telaQuando&&Date.now()-telaHora<15000)return;/* releitura atrasada do banco não desfaz o comando que acabou de chegar */if(q){telaQuando=q;telaHora=Date.now()}const v=d.view;
     let ch=false;
     if((d.tema==="dark"||d.tema==="light")&&d.tema!==effTheme()){document.documentElement.setAttribute("data-theme",d.tema);ls("sig_tema",d.tema)}
     if(typeof d.filtro==="string"&&d.filtro!==state.filter){if(!d.filtro||BAIRROS.includes(d.filtro)){state.filter=d.filtro;state.telaPend=null;ch=true}else state.telaPend=d.filtro}
     if(d.metrica&&METRICS[d.metrica]&&d.metrica!==state.mapMetric){state.mapMetric=d.metrica;ch=true}
-    if((v==="painel"||v==="bairros"||v==="emprego")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel();else if(ch&&state.view==="emprego")renderEmprego()}catch(e){}},()=>{});
+    if((v==="painel"||v==="bairros"||v==="emprego")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel();else if(ch&&state.view==="emprego")renderEmprego()}catch(e){}};
+  db.doc("publico/tela").onSnapshot(s=>{if(s.exists)aplicarTela(s.data()||{})},()=>{});
+  if(db.aoTela&&isTvDevice())db.aoTela(aplicarTela);
   function ligarPessoas(){if(state.pessoasSub)return;
     state.pessoasSub=db.collection("pessoas").onSnapshot(snap=>{if(!state.authOk||state.cargaMassa)return;state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
         gotLive=true;clearTimeout(timer);mostrarConexao(db.info());onRecords()},
