@@ -891,7 +891,7 @@ function renderEmprego(){
     options:baseOpts({indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const x=ags[c.dataIndex];return x&&x.forca?`${PD(tx(x))} · ${N(x.desemp)} de ${N(x.forca)} pessoas`:"Sem dados"}}}},scales:{x:pctX,y:semGrade}})});
   const pal=[C[0],css("--b4"),C[2],C[5],C[1],C[4],C[3],css("--b2"),css("--b3"),mu],oc=OCUP.filter(o=>z.trab[o]);
   mkChart("chOcup",{type:"doughnut",data:{labels:oc,datasets:[{data:oc.map(o=>z.trab[o]),backgroundColor:oc.map(o=>pal[OCUP.indexOf(o)]),borderColor:css("--surface"),borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:"55%",animation:{duration:animLenta()?1100:500,easing:"easeOutCubic"},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"55%",animation:{duration:animLenta()?300:500,easing:"easeOutCubic"},
       plugins:{legend:{position:innerWidth<700?"bottom":"right",labels:{color:mu,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.label}: ${N(c.raw)} (${pct(c.raw,oc.reduce((s,o)=>s+z.trab[o],0))}%)`}}}}});
   const fx=[2,3,4,5];
   mkChart("chDesIdade",{type:"bar",data:{labels:fx.map(i=>FAIXAS[i]+" anos"),datasets:[{label:"Taxa de desemprego",data:fx.map(i=>taxa(z.desFx[i],z.forFx[i])),backgroundColor:C[2],borderRadius:4}]},
@@ -1038,7 +1038,7 @@ function mkChart(id,cfg){if(typeof Chart==="undefined")return;const el=document.
       ds.forEach((d,i)=>{if(ch.data.datasets[i])Object.assign(ch.data.datasets[i],d);else ch.data.datasets.push(d)});ch.data.datasets.length=ds.length;
       ch.options=cfg.options;ch.update();return}catch(e){console.warn(e)}}
   if(ch)ch.destroy();charts[id]=new Chart(el,cfg)}
-function baseOpts(extra){const fg=css("--muted"),grid=css("--line");return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:animLenta()?1100:500,easing:"easeOutCubic"},
+function baseOpts(extra){const fg=css("--muted"),grid=css("--line");return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:animLenta()?300:500,easing:"easeOutCubic"},
   plugins:{legend:{labels:{color:fg,boxWidth:12,font:{family:FB}}},tooltip:{titleFont:{family:FB},bodyFont:{family:FB}}},
   scales:{x:{ticks:{color:fg,font:{family:FB}},grid:{color:grid}},y:{ticks:{color:fg,precision:0,font:{family:FB}},grid:{color:grid},beginAtZero:true}}},extra||{})}
 function renderCharts(a){
@@ -1958,6 +1958,8 @@ function nf0(x){return Number(x).toLocaleString("pt-BR")}
     if((v==="painel"||v==="bairros"||v==="emprego")&&state.view!==v)go(v);else if(ch&&state.view==="painel")renderPainel();else if(ch&&state.view==="emprego")renderEmprego()}catch(e){}};
   db.doc("publico/tela").onSnapshot(s=>{if(s.exists)aplicarTela(s.data()||{})},()=>{});
   if(db.aoTela&&isTvDevice())db.aoTela(aplicarTela);
+  // reserva rápida: se o tempo real da TV cair, confere só a tela (registro pequeno) a cada 1,5 s
+  if(isTvDevice()){let lendo=false;setInterval(()=>{if(lendo||document.hidden)return;lendo=true;db.doc("publico/tela").get().then(s=>{if(s.exists)aplicarTela(s.data()||{})}).catch(()=>{}).then(()=>{lendo=false})},1500)}
   function ligarPessoas(){if(state.pessoasSub)return;
     state.pessoasSub=db.collection("pessoas").onSnapshot(snap=>{if(!state.authOk||state.cargaMassa)return;state.recordsLoaded=true;state.records=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
         gotLive=true;clearTimeout(timer);mostrarConexao(db.info());onRecords()},
