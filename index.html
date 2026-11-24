@@ -301,6 +301,10 @@ body.tv .notice.demo{margin:0 0 clamp(4px,.8vh,10px);padding:clamp(3px,.5vh,8px)
 footer{background:var(--brand);color:var(--brand-ink)}
 footer .wrap{padding-block:18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px}
 footer b{font-family:var(--f-display)}
+/* botão miniatura "Reiniciar o sistema" no canto inferior (só no computador; não aparece na Smart TV) */
+#reiniciarBtn{position:fixed;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:40;width:26px;height:26px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.75;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+#reiniciarBtn:hover,#reiniciarBtn:focus-visible{opacity:1;color:var(--accent)}
+html.tv-device #reiniciarBtn,html.android-device #reiniciarBtn{display:none}
 footer .wrap{flex-direction:column;gap:8px}
 body>header,body>main,body>footer{min-width:0;max-width:100%}
 footer .wrap>*{min-width:0;max-width:100%}
@@ -364,7 +368,8 @@ body.tv .pop-btn b{font-size:clamp(16px,2.4vh,28px)}
 /* ===== Modo TV: tudo em uma tela, sem rolagem ===== */
 #tvBtn{width:auto;padding:0 10px;gap:6px;font-weight:700;font-size:13px}
 #tvBtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1b120a}
-html.tv-on,html.tv-on body{height:100%;overflow:hidden}
+html.tv-on,html.tv-on body{height:100%;overflow:hidden!important;-ms-overflow-style:none}
+html.tv-on body{margin:0;max-height:100vh}
 html.tv-on ::-webkit-scrollbar{width:0;height:0;display:none}
 html.tv-on *{scrollbar-width:none}
 body.tv{height:100vh;height:100dvh;overflow:hidden;font-size:clamp(13px,1.35vh,18px)}
@@ -710,6 +715,7 @@ html.tv-device #adminBtn,html.tv-device #logoutBtn,html.tv-device [data-pdf],htm
 <footer><div class="wrap">
   <div class="ft-law" role="note" aria-label="SIG · Sistema Integrado de Gestão · Almadina-BA · Versão 1.0 · © 2026 Todos os direitos reservados a André Almeida, desenvolvedor do sistema."><div class="mq-track" aria-hidden="true"><span class="mq-item"><b>SIG</b> · Sistema Integrado de Gestão · Almadina-BA <span class="ver">Versão 1.0</span> <span class="mq-sep">◆</span> © <span class="yr">2026</span> Todos os direitos reservados a André Almeida, desenvolvedor do sistema. <span class="mq-sep">◆</span></span><span class="mq-item"><b>SIG</b> · Sistema Integrado de Gestão · Almadina-BA <span class="ver">Versão 1.0</span> <span class="mq-sep">◆</span> © <span class="yr">2026</span> Todos os direitos reservados a André Almeida, desenvolvedor do sistema. <span class="mq-sep">◆</span></span></div></div>
 </div></footer>
+<button type="button" id="reiniciarBtn" title="Reiniciar o sistema" aria-label="Reiniciar o sistema"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true" hidden><div class="box" id="modalBox"></div></div>
 <div class="toast" id="toast" hidden></div>
@@ -1617,10 +1623,17 @@ function setTV(on,fromUser,auto){document.body.classList.toggle("tv",on);documen
   if(on&&state.view!=="painel"&&state.view!=="bairros"&&state.view!=="emprego")go("painel");
   if(fromUser){if(on)enterFs();else exitFs()}
   try{if(on&&location.hash!=="#tv")history.replaceState(null,"","#tv");if(!on&&location.hash==="#tv")history.replaceState(null,"",location.pathname+location.search)}catch(e){}
-  setTimeout(()=>{refresh();window.dispatchEvent(new Event("resize"))},60)}
+  tvAltura();setTimeout(()=>{refresh();window.dispatchEvent(new Event("resize"))},60)}
+/* Smart TV: altura da tela em pixels (navegadores antigos de TV calculam mal 100vh/100dvh e mostram barra de rolagem) */
+function tvAltura(){const on=document.body.classList.contains("tv");document.body.style.height=on?window.innerHeight+"px":"";document.body.style.maxHeight=on?window.innerHeight+"px":"";if(on)window.scrollTo(0,0)}
+window.addEventListener("resize",tvAltura);
 $("#tvBtn").onclick=()=>{setTV(!document.body.classList.contains("tv"),true);toast(document.body.classList.contains("tv")?"Modo TV ativado: tudo em uma tela":"Modo TV desativado")};
 window.addEventListener("hashchange",()=>{if(location.hash==="#tv"&&!document.body.classList.contains("tv"))setTV(true)});
-(function(){const sv=ls("sig_tv");if(location.hash==="#tv"||sv==="1"||(sv==null&&isTvDevice()))setTV(true,false,true)})();
+/* na Smart TV o modo TV liga sempre ao abrir (mesmo que alguém tenha saído dele antes) */
+(function(){const sv=ls("sig_tv");if(location.hash==="#tv"||sv==="1"||isTvDevice())setTV(true,false,true)})();
+/* Smart TV: tela cheia ao abrir; se o navegador da TV exigir um toque, entra em tela cheia no primeiro botão do controle */
+if(isTvDevice()){enterFs();const fsTv=()=>{if(document.body.classList.contains("tv"))enterFs()};["keydown","click","pointerdown","touchend"].forEach(t=>document.addEventListener(t,fsTv,true))}
+$("#reiniciarBtn").onclick=()=>{toast("Reiniciando o sistema…");setTimeout(()=>location.reload(),300)};
 $("#logoutBtn").onclick=()=>{if(!state.me)return;logAudit("acesso","Saiu do modo administrativo","Administrador","");closeModal();logout(true);toast("Você saiu do modo administrativo")};
 $("#themeBtn").onclick=()=>{const n=effTheme()==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",n);ls("sig_tema",n);sendTela(null,true);toast(n==="dark"?"Modo escuro ativado":"Modo claro ativado")};
 
